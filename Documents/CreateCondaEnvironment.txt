@@ -1,0 +1,7 @@
+#CREATE ENVIRONMENT IN HPC
+conda config --add channels conda-forge
+conda create -n WHATIF_py27 python=2.7
+conda install -n WHATIF_py27 -c ibmdecisionoptimization cplex
+conda install -n WHATIF_py27 openpyxl xlsxwriter xlrd pyomo pandas numpy joblib
+
+conda activate WHATIF_py27
