@@ -1,9 +1,11 @@
 # -*- coding: utf-8 -*-
 """
-    Copyright 2018 Raphaël Payet-Burin
-    Copyright 2018 Mikkel Kromann
     Copyright 2018 Technical University of Denmark
     Copyright 2018 COWI A/S
+    
+    Authors: 
+        Raphaël Payet-Burin
+        Mikkel Kromann
 
     This file is part of WHAT-IF.
 
@@ -563,6 +565,8 @@ class HydroeconomicOptimization():
         md.agr_cropprod     = Constraint(md.nyear, md.nfzone, md.ncrop,         rule=agr_cropprod)
         md.agr_maxland      = Constraint(md.nyear, md.nfzone,                   rule=agr_maxland)
         md.agr_fieldarea    = Constraint(md.nyear, md.nfzone, md.nfieldculture, rule=agr_fieldarea)
+        if md.Options['Culture max area'] == 1:
+            md.agr_maxcularea   = Constraint(md.nyear, md.nfzone, md.nculture,      rule=agr_maxcularea)
         if md.Options['Fixed culture'] == 1 and md.Options['Culture max area'] != 'fixed' and MPC == 0:
             md.agr_fixedculture = Constraint(md.nyear, md.nfzone, md.nfieldculture, rule=agr_fixedculture)
         
