@@ -1,7 +1,7 @@
 # WHAT-IF: Supporting water infrastructure investment planning with hydroeconomic optimization models 
 
 The WHAT-IF (Water, Hydropower, Agriculture Tool for Investment and Financing) model is an open source decision support tool 
-distributed under the GPLv3 license and is described in the HESS publication:
+distributed under the GPLv3 license and is described in the [HESS publication](https://www.hydrol-earth-syst-sci-discuss.net/hess-2019-167/):
 > WHAT-IF: an open-source decision support tool for water infrastructure investment planning within the Water-Energy-Food-Climate Nexus
 
 
