@@ -1,9 +1,11 @@
 # -*- coding: utf-8 -*-
 """
-    Copyright 2018 Raphaël Payet-Burin
-    Copyright 2018 Mikkel Kromann
     Copyright 2018 Technical University of Denmark
     Copyright 2018 COWI A/S
+    
+    Authors: 
+        Raphaël Payet-Burin
+        Mikkel Kromann
 
     This file is part of WHAT-IF.
 
