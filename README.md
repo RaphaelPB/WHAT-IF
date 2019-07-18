@@ -36,16 +36,6 @@ The **Documents** folder contains additional information:
 * **WHATIF_py27.yml** is the conda environment with all the useful packages to run WHAT-IF, 
 * **INSTALLING_WHATIF** is a step by step guide on how to install and run WHAT-IF
 
-# The Hydroeconomic optimization model
-
-For a detailed description of the model features please consult the HESS publication
-
-
-
-Extract of the HESS publication
- 
-
-
 ## Usage
 
 The **Documents** folder contains a step by step guide **INSTALLING_WHATIF** describing the process, in brief:
