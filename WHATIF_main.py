@@ -43,7 +43,7 @@ OutPath         = ResultFolderPath + os.sep + 'RESULTS_' + time.strftime("%d_%m_
 ResultExport    = ResultFolderPath + os.sep + 'RESULTS.txt' #results (python objects) saved as txt
 ModelExport     = ResultFolderPath + os.sep + 'MODEL.txt' #solved pyomo model (unmodified python objects) saved as txt
     #Load excel files or existing python object
-UPDATE          = 0 #0 updates all parameters, 1 updates only selected parameters
+UPDATE          = 1 #0 updates all parameters, 1 updates only selected parameters
 
 #Define path to data
 Main            = DataFolderPath + os.sep + 'MainFile.xlsx'
@@ -78,7 +78,7 @@ t=time.time()
 HOM.model.dual  = Suffix(direction=Suffix.IMPORT)
 
 #Choose solver
-solver          = SolverFactory('cplex') 
+solver          = SolverFactory('glpk') 
 
 #Solve
 solverstatus    = solver.solve(HOM.model)   

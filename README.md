@@ -51,6 +51,7 @@ Extract of the HESS publication
 
 ## Usage
 
+The **Documents** folder contains a step by step guide **INSTALLING_WHATIF** describing the process, in brief:
 * Install the [Anaconda navigator](https://anaconda.org/anaconda/anaconda-navigator), 
 the simpliest way to manage your pyhton packages and versions
 
@@ -61,8 +62,8 @@ To do so, in the anaconda prompt, run:
 `conda env create -f WHATIF_py27.yml` 
 
 * Recommended solvers are cplex (free for academics) or glpk (open-source)
-* WHAT-IF is also compatible with Python 3.6 
-
+* WHAT-IF is also compatible with Python 3.7 
+and will be soon only released in python 3.7
 
 ## Author 
 Payet-Burin Raphaël (rapp@env.dtu.dk)
