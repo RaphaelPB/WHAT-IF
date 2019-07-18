@@ -35,10 +35,6 @@ The **Documents** folder contains additional information:
 * **COMMON ERRORS.docx** lists most common programing errors when using/developing the model
 * **WHATIF_py27.yml** is the conda environment with all the useful packages to run WHAT-IF, 
 * **INSTALLING_WHATIF** is a step by step guide on how to install and run WHAT-IF
-to install run:
-`conda env create -f WHATIF_py27.yml` 
-in the anaconda prompt
-
 
 # The Hydroeconomic optimization model
 
