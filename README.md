@@ -34,6 +34,7 @@ The **Documents** folder contains additional information:
 * **Data_Organization.docx** summarizes the organization of the data for the WHAT-IF model and the HESS publication
 * **COMMON ERRORS.docx** lists most common programing errors when using/developing the model
 * **WHATIF_py27.yml** is the conda environment with all the useful packages to run WHAT-IF, 
+* **INSTALLING_WHATIF** is a step by step guide on how to install and run WHAT-IF
 to install run:
 `conda env create -f WHATIF_py27.yml` 
 in the anaconda prompt
