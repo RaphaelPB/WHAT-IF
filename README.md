@@ -31,10 +31,10 @@ The **Data** folder contains the requiered data for the different modules:
 * **EnergyModule.xlsx** Data supporting the energy production and energy markets modules, including hydropower plants, other power plants, power technologies, fuels, energy markets, demands, value of energy and transmission lines.
 
 The **Documents** folder contains additional information:
+* **INSTALLING_WHATIF.docx** is a step by step guide on how to install and run WHAT-IF
 * **Data_Organization.docx** summarizes the organization of the data for the WHAT-IF model and the HESS publication
 * **COMMON ERRORS.docx** lists most common programing errors when using/developing the model
-* **WHATIF_py27.yml** is the conda environment with all the useful packages to run WHAT-IF, 
-* **INSTALLING_WHATIF** is a step by step guide on how to install and run WHAT-IF
+* **WHATIF_py37.yml** is the conda environment with all the useful packages to run WHAT-IF 
 
 ## Usage
 
@@ -42,15 +42,15 @@ The **Documents** folder contains a step by step guide **INSTALLING_WHATIF** des
 * Install the [Anaconda navigator](https://anaconda.org/anaconda/anaconda-navigator), 
 the simpliest way to manage your pyhton packages and versions
 
-* Install the WHATIF_py27 environment from the **Documents** folder
+* Install the WHATIF_py37 environment from the **Documents** folder
 
 To do so, in the anaconda prompt, run:
 
-`conda env create -f WHATIF_py27.yml` 
+`conda env create -f WHATIF_py37.yml` 
 
 * Recommended solvers are cplex (free for academics) or glpk (open-source)
-* WHAT-IF is also compatible with Python 3.7 
-and will be soon only released in python 3.7
+* WHAT-IF is now only released with Python 3.7
+
 
 ## Author 
 Payet-Burin Raphaël (rapp@env.dtu.dk)

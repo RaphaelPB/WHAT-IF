@@ -1,0 +1,15 @@
+#CREATE ENVIRONMENT MANUALLY (useful if .yml doc does not work, or to install on DTU HPC) 
+#Run these commands fro the annaconda prompt to manually creat the WHAT-IF python environment
+#Warning: This list might not cover all required packages
+
+#CREATE PYTHON 3.7 ENVIRONEMENT ()
+
+conda config --add channels conda-forge
+conda create -n WHATIF_py37 python=3.7.3
+conda install -n WHATIF_py37 openpyxl xlsxwriter xlrd pyomo pandas numpy multiprocess ipopt scipy glpk coincbc
+conda install -n WHATIF_py37 -c ibmdecisionoptimization docplex
+
+conda activate WHATIF_py37
+
+#IPOPT SOLVER (ipopt bin seems to work better for any reason, when running on the hpc the path of the executable should be given)
+conda install -n WHATIF_py37 -c conda-forge ipopt ipopt_bin
