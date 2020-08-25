@@ -23,13 +23,13 @@ import pickle
 import pandas as pd
 dirname = os.path.abspath(os.path.dirname(__file__))
 sys.path.append(os.path.join(dirname, 'bin'))
-
+from result_analysis import ResultAnalysis
 
 #%%OPTIONS - MODIFY BY USER
 #SCENFILE=os.path.join(dirname,'Data','Scenarios_to_compare.xlsx')
 
-SHEET='investAll'
-FOLDERNAME='iALL_mpc3b_naThu07_05_2020_17h08'
+SHEET='noCaKa'
+FOLDERNAME='XxXinvtype_sef_noCaKaWed13_11_2019_06h26'
 DIFFMODE=0 # if=1 exports relative results to POWERBI, instead of absolute (=0)
 SCENFILE='Scenarios_to_compare.xlsx'
 result_path = os.path.join(dirname,'Results',FOLDERNAME)
@@ -45,10 +45,7 @@ def pd_to_csv(folder,file,pdata):
 def dict_to_pd(dic):
     if dic != {}:
         #creates dataframe from nested dic, moves left column to index, and first index to column
-        pdata=pd.concat({k: pd.DataFrame(v).T for k, v in dic.items()}, axis=0)
-        if not pdata.empty:
-            pdata=pdata.stack().unstack(0)
-        return pdata
+        return pd.concat({k: pd.DataFrame(v).T for k, v in dic.items()}, axis=0).stack().unstack(0)
 
 def aggregate_scenarios_to_csv(scenarios,vardic,outpath,keytype='tuple',indexname=0,elist=0,refscen=0,renamecol=1):
     ##scenarios: list of scenarios
@@ -79,8 +76,7 @@ def aggregate_scenarios_to_csv(scenarios,vardic,outpath,keytype='tuple',indexnam
         elist=[]
         for scen in scenarios:
             for key in vardic[scen].keys():
-                if key != 'AlCULAREAXXXX': #solve troubles
-                    elist.append(key)        
+                elist.append(key)        
         elist=set(elist)
     
     for elem in elist:
@@ -125,7 +121,6 @@ def aggregate_scenarios_to_csv(scenarios,vardic,outpath,keytype='tuple',indexnam
                     pdata=pd.DataFrame(columns=indexname[elem]+[elem])
                     filename=str(elem)+'.csv'
                     pdata.to_csv(os.path.join(outpath,filename),sep=';',decimal=',',index=False)
-                    
 #%%#####################################
 #        COLLECT INFORMATION
         
@@ -134,6 +129,14 @@ refscen=sceninfo.to_dict()['refscen']
 scenarios=[s for s in refscen.keys()]
 #scen_to_load=[s for s in refscen.keys()]
 
+#%%#####################################
+#        COMPARE SCENARIOS (to excel)
+
+#load all results
+parallelresults=[pickle.load(open(os.path.join(result_path,scen+'.txt'),"rb")) for scen in scenarios]
+#Compare and Export results
+result_analysis=ResultAnalysis()
+result_analysis.export_scenario_analysis(scenarios,refscen,parallelresults,result_path)
 
 #%%#####################################
 #               POWERBI
@@ -149,7 +152,6 @@ VarIndex={
  'AcSUPPLY':['nyear', 'ncmarket', 'ncrop','ncdstep'],
  'AcTRANS':['nyear', 'nctrans', 'ncrop'],
  'AlCULAREA':['nyear', 'nfzone', 'nflied', 'nfieldculture'],
- 'CULAREA':['nyear','nfzone','nculture'],
  'AwSUPPLY':['ntime', 'nfzone', 'nculture'],
  'DUMYCROP':['nyear', 'nfzone', 'ncrop'],
  'DUMYEFLOW':['ntime', 'neflow'],
@@ -172,7 +174,7 @@ VarIndex={
  'water_shadow':['ntime','ncatch']}
 
 #load all decision variables (DV) from model runs
-scen_to_load=set([s for s in refscen.keys()]+[s for s in refscen.values() if s==s]) 
+scen_to_load=set([s for s in refscen.keys()]+[s for s in refscen.values()]) 
 ScenarioDV={scen:pickle.load(open(os.path.join(result_path,scen+'_DV.txt'),"rb")) for scen in scen_to_load}
 #Assemble and Export to csv
 REF = 0 if DIFFMODE == 0 else refscen

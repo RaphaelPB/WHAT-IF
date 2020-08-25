@@ -1,9 +1,11 @@
 # WHAT-IF: Supporting water infrastructure investment planning with hydroeconomic optimization models 
 
+# **WARNING**: only use this branch to run the Nile synthetic case as in the WRR publication 
 The WHAT-IF (Water, Hydropower, Agriculture Tool for Investment and Financing) model is an open source decision support tool 
 distributed under the GPLv3 license and is described in the [HESS publication](https://www.hydrol-earth-syst-sci-discuss.net/hess-2019-167/):
 > WHAT-IF: an open-source decision support tool for water infrastructure investment planning within the Water-Energy-Food-Climate Nexus
 
+# **WARNING**: This branch is a specific branch for a synthetic case on the Nile River - it does not integrate all the functionalities of WHAT-IF
 
 The decision-support tool can be used in single-run mode or in scenario mode:
 
