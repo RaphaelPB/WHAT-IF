@@ -1,6 +1,6 @@
 # WHAT-IF: Supporting water infrastructure investment planning with hydroeconomic optimization models 
 
-**If you want to create your own WHAT-IF case study - change the branch from "master" to "example" to get a simple example case to start from**
+**This is the example branch - perfect start point to create your own WHAT-IF case study !**
 
 The WHAT-IF (Water, Hydropower, Agriculture Tool for Investment and Financing) model is an open source decision support tool 
 distributed under the GPLv3 license and is described in the [HESS publication](https://www.hydrol-earth-syst-sci-discuss.net/hess-2019-167/):

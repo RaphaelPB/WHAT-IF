@@ -31,13 +31,13 @@ from hydroeconomic_optimization   import HydroeconomicOptimization  #Generates t
 from result_analysis              import ResultAnalysis             #Exports results to excel sheets
 
 #%%OPTIONS - MODIFY BY USER
-SCENARIO    = 'DEVsemidry' #Scenario to be run, 'WHATIF_main' is default
+SCENARIO    = 'WHATIF_main' #Scenario to be run, 'WHATIF_main' is default
 RESULTFOLDER= 'WHATIF_main'#+time.strftime("%d_%m_%Y_%Hh%M") #automatically generates names based on time and date (avoids erasing previous results)
 NEWSHEET    = 1 #1 creates a new sheet, 0 fills existing sheet
 UPDATE      = 0 #0 updates all parameters, 1 updates only selected parameters (through the "Info" sheet in the parameters excel files)
 EXPORT      = 'all' #'all' powerBI files + following, 'xlsx': individual excel files + following, 'txt': selected results + excel of all selected results
 SOLVER      = 'ipopt' #'cplex'
-SOLVERPATH  = 0# 0 is default, precise path only if required by solver #'~/CoinIpopt/bin/ipopt' 
+SOLVERPATH  = 0#'/home/software/ipopt/3.12/bin/ipopt'#0# 0 is default, precise path only if required by solver #'~/CoinIpopt/bin/ipopt' #'~/miniconda3/pkgs/ipopt_bin-3.7.1-10/bin/ipopt'#
 
 #%% DEFINE PARAMETERS
 #Data Folder
@@ -45,15 +45,17 @@ DataFolderPath  = os.path.join(dirname, 'Data')
 ResultFolderPath= os.path.join(dirname, 'Results', RESULTFOLDER)    
 #Excel output file
 OutPath         = ResultFolderPath + os.sep + 'modelrun_' + time.strftime("%d_%m_%Y_%Hh%M") + '.xlsx'
+#Python obj output file (txt)
+ResultExport    = ResultFolderPath + os.sep + 'RESULTS.txt' #results (python objects) saved as txt
 
 #Define path to data
-Main            = DataFolderPath + os.sep + 'MainFile.xlsx'
-Water           = DataFolderPath + os.sep + 'WaterModule.xlsx'
-Agriculture     = DataFolderPath + os.sep + 'AgricultureModule.xlsx'
-CropMarket      = DataFolderPath + os.sep + 'CropMarketModule.xlsx'
-Energy          = DataFolderPath + os.sep + 'EnergyModule.xlsx'
-Investment      = DataFolderPath + os.sep + 'InvestmentModule.xlsx'
-Param           = DataFolderPath + os.sep + 'Parameters.txt' #parameters (python dictionnaries) saved as txt
+Main            = DataFolderPath + os.sep + 'MainFile_ex.xlsx'
+Water           = DataFolderPath + os.sep + 'WaterModule_ex.xlsx'
+Agriculture     = DataFolderPath + os.sep + 'AgricultureModule_ex.xlsx'
+CropMarket      = DataFolderPath + os.sep + 'CropMarketModule_ex.xlsx'
+Energy          = DataFolderPath + os.sep + 'EnergyModule_ex.xlsx'
+Investment      = DataFolderPath + os.sep + 'InvestmentModule_ex.xlsx'
+Param           = DataFolderPath + os.sep + 'Parameterspy37.txt' #parameters (python dictionnaries) saved as txt
 
 #Collect parameters
 t=time.time()
@@ -86,9 +88,7 @@ t=time.time()
 solver = SolverFactory(SOLVER,executable=SOLVERPATH) if SOLVERPATH != 0 else SolverFactory(SOLVER)
 #if solver.name == 'ipopt':
     #solver.options['linear_solver']='ma97'
-    #solver.options['mu_strategy']='adaptive' 
     #solver.options['bound_relax_factor']=0
-
 solverstatus    = solver.solve(HOM.model)#,tee=True,keepfiles=True,logfile=os.path.join(dirname, 'logREAD.log')) #
 
 if HOM.model.Options['Investment module'] == 1:
@@ -113,8 +113,8 @@ if not os.path.exists(ResultFolderPath):
 exppath = ResultFolderPath + os.sep + SCENARIO + '.xlsx' 
 result_analysis = ResultAnalysis()
 if EXPORT in ['xlsx','all']:
-    results=result_analysis.readresults(HOM.model,parameters,solverstatus,scenario=SCENARIO,PRINT=1,VALIDATION=1) #   
-    result_analysis.export_to_excel(results,exppath,NEWSHEET=NEWSHEET,VALIDATION=1) #export formated results to excel 
+    results=result_analysis.readresults(HOM.model,parameters,solverstatus,scenario=SCENARIO,PRINT=1,VALIDATION=0) #   
+    result_analysis.export_to_excel(results,exppath,NEWSHEET=NEWSHEET,VALIDATION=0) #export formated results to excel 
 if EXPORT in ['all']:
     result_analysis.export_all_DV(HOM.model,ResultFolderPath,scenario=SCENARIO) #export all decision variables
     result_analysis.export_mass_balances(results,ResultFolderPath,scenario=SCENARIO) #export mass balances (for powerBI)

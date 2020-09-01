@@ -28,8 +28,8 @@ from result_analysis import ResultAnalysis
 #%%OPTIONS - MODIFY BY USER
 #SCENFILE=os.path.join(dirname,'Data','Scenarios_to_compare.xlsx')
 
-SHEET='phlen'
-FOLDERNAME='phlen_mpcecb_DNFE_nav_gencapfixMon22_06_2020_11h39'
+SHEET='main'
+FOLDERNAME='WHATIF_main'
 result_path = os.path.join(dirname,'Results',FOLDERNAME) 
 SCENFILE='Scenarios_to_compare.xlsx'
 #%%#####################################

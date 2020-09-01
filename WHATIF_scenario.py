@@ -35,13 +35,13 @@ from result_analysis              import ResultAnalysis             #Collects re
 import multiprocess as mp
 
 #%%OPTIONS - MODIFY BY USER
-RESULTFOLDER = 'scenario'#+time.strftime("%d_%m_%Y_%Hh%M") #automatically generates names based on time and date (avoids erasing previous results)
+RESULTFOLDER = 'scenarios'+'_'+time.strftime("%d_%m_%Y_%Hh%M") #automatically generates names based on time and date (avoids erasing previous results)
 UPDATE = 0 #0 updates all parameters, 1 updates only selected parameters
 PARALLEL_scenario = 0 #Run scenarios in parallel 
 npll = 3 #Number of paralllel scenario solves
 EXPORT = 'all' #'all' powerBI files + following, 'xlsx': individual excel files + following, 'txt': selected results + excel of all selected results
 SOLVER = 'ipopt' #'cbc' #'cplex'
-SOLVERPATH = 0# 0 is default, precise path only if required by solver #'~/CoinIpopt/bin/ipopt'
+SOLVERPATH = 0 #0 is default, precise path only if required by solver
 
 #%%
 #Define paths
@@ -49,13 +49,13 @@ ResultFolderPath= os.path.join(dirname, 'Results', RESULTFOLDER)
 DataFolderPath  = os.path.join(dirname, 'Data')
 
 #Collect parameters
-Main            = DataFolderPath + os.sep + 'MainFile.xlsx'
-Water           = DataFolderPath + os.sep + 'WaterModule.xlsx'
-Agriculture     = DataFolderPath + os.sep + 'AgricultureModule.xlsx'
-CropMarket      = DataFolderPath + os.sep + 'CropMarketModule.xlsx'
-Energy          = DataFolderPath + os.sep + 'EnergyModule.xlsx'
-Investment      = DataFolderPath + os.sep + 'InvestmentModule.xlsx'
-Param           = DataFolderPath + os.sep + 'Parameters.txt' #parameters (python dictionnaries) saved as txt
+Main            = DataFolderPath + os.sep + 'MainFile_ex.xlsx'
+Water           = DataFolderPath + os.sep + 'WaterModule_ex.xlsx'
+Agriculture     = DataFolderPath + os.sep + 'AgricultureModule_ex.xlsx'
+CropMarket      = DataFolderPath + os.sep + 'CropMarketModule_ex.xlsx'
+Energy          = DataFolderPath + os.sep + 'EnergyModule_ex.xlsx'
+Investment      = DataFolderPath + os.sep + 'InvestmentModule_ex.xlsx'
+Param           = DataFolderPath + os.sep + 'Parameterspy37.txt' #parameters (python dictionnaries) saved as txt
 
 print('Harvesting parameters...')
 parameters      = Database(update=UPDATE,DataFile=Param)
@@ -118,10 +118,10 @@ if not os.path.exists(ResultFolderPath):
     
 #Choose solver
 solver = SolverFactory(SOLVER,executable=SOLVERPATH) if SOLVERPATH != 0 else SolverFactory(SOLVER)
-if solver.name == 'ipopt':
-    #solver.options['linear_solver']='ma97'
+#if solver.name == 'ipopt':
+#    solver.options['linear_solver']='ma97'
     #solver.options['mu_strategy']='adaptive'
-    solver.options['bound_relax_factor']=10**-12
+    #solver.options['bound_relax_factor']=10**-12
 if solver.name=='cplex' and PARALLEL_scenario==1:
     solver.options['threads'] = 1 #limit the number of parallel computing
 

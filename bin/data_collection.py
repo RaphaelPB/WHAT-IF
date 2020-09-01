@@ -260,11 +260,12 @@ class Database():
         monthorder=[mo[k+moi0] for k in range(len(mo))] #months as ordered list
         nm0=[k for k in range(len(monthorder)) if monthorder[k]==m0][0] #initial month index
         ttime = [t for t in range(tini,tfin+1)] #considered time steps
-        if type(list(self.val['wRunOff'].keys())[0]) is tuple: #no scenarios on runoff
+        if 'wRunOff' not in self.scen.keys(): #no scenarios on runoff
             self.val['ntime']=[k[0] for k in self.val['wRunOff'].keys()]
         else: #scenarios on runoff
             scen=self.val[self.scen['wRunOff']][scenario] #select scenario
             self.val['ntime']=[k[0] for k in self.val['wRunOff'][scen].keys()]
+        
         self.val['t_year'] = {t:int(y0)+(t-int(t0))//len(monthorder) for t in self.val['ntime']} #year of time steps
         self.val['t_month'] = {t:monthorder[(t-int(t0)+nm0)%len(monthorder)] for t in self.val['ntime']} #month of time steps
         t_prev = {t:t-1 for t in ttime} #previous time step       

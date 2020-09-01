@@ -56,7 +56,7 @@ class HydroeconomicOptimization():
         md.sw = Param(initialize=1000,mutable=True) # Scaling factor for WwRSTORAGE and WwOUTFLOW (1000=convert DV from Mm3 to km3)
         md.se = Param(initialize=1000,mutable=True) # Scaling factor for all energy decision variables
         
-    # WETLAND MODULE UNDER DEVELOPMENT
+    # OPTIONS UNDER DEVELOPMENT
         ANALYTICAL=1 if 'ANALYTICAL' not in md.Options.keys() else md.Options['ANALYTICAL']
         #if 1 uses continuous solution for wetland evaporation, any other value uses discrete evaporation
         OUTFLOWPOWER=1 if 'OUTFLOWPOWER' not in md.Options.keys() else md.Options['OUTFLOWPOWER']
@@ -64,6 +64,9 @@ class HydroeconomicOptimization():
         AREAPOWER=1 if 'AREAPOWER' not in md.Options.keys() else md.Options['AREAPOWER']
         # Area(V) = wkV* V**AREAPOWER + wResArea
         AREACONSTRAINT='minimum' if 'AREACONSTRAINT' not in md.Options.keys() else md.Options['AREACONSTRAINT']
+        
+        #Average Hydrology
+        AVERAGEHYDRO=0 if 'AVERAGEHYDRO' not in md.Options.keys() else md.Options['AVERAGEHYDRO']
         #%%###############
         #**Water Module**#
         ##################
@@ -89,10 +92,21 @@ class HydroeconomicOptimization():
         md.t_prev           = Param(md.ntime, initialize=t_prev)                   #Previous time step [time] (id)       
             
     #Hydrology
-        md.wRunOff          = Param(md.ntime, md.ncatch, mutable=True, initialize=read('wRunOff',time=ttime))   #Runoff [time x catchment] (Mm3/month)
-        md.wRainFall        = Param(md.ntime, md.ncatch, mutable=True, initialize=read('wRainFall',time=ttime)) #Precipitation [time x catchment] (mm)
-        md.wET0             = Param(md.ntime, md.ncatch, mutable=True, initialize=read('wET0',time=ttime))      #ET0 [time x catchment] (mm)
-        md.wFlowLoss        = Param(md.ncatch, initialize=read('wFlowLoss'))                                   #Flow loss [catchment] (%)
+        def hydro_read(name): #function to calculate average hydrology parameter if option activated 
+            hparam=read(name,time=ttime)
+            if AVERAGEHYDRO == 1:
+                hparam={(t,c):sum(hparam[tt,c] for tt in md.ntime if md.t_month[tt]==md.t_month[t])/len(md.nyear) 
+                        for t in md.ntime for c in md.ncatch}
+            elif type(AVERAGEHYDRO) is str and 'rolling' in AVERAGEHYDRO:
+                ry=int(AVERAGEHYDRO[-1])
+                hparam={(t,c):sum(hparam[tt,c] for tt in md.ntime if md.t_month[tt]==md.t_month[t] and md.t_year[t]-ry<=md.t_year[tt]<=md.t_year[t]+ry)
+                             /sum(1            for tt in md.ntime if md.t_month[tt]==md.t_month[t] and md.t_year[t]-ry<=md.t_year[tt]<=md.t_year[t]+ry)
+                        for t in md.ntime for c in md.ncatch}
+            return hparam
+        md.wRunOff          = Param(md.ntime, md.ncatch, mutable=True, initialize=hydro_read('wRunOff'))    #Runoff [time x catchment] (Mm3/month)
+        md.wRainFall        = Param(md.ntime, md.ncatch, mutable=True, initialize=hydro_read('wRainFall'))        #Precipitation [time x catchment] (mm)
+        md.wET0             = Param(md.ntime, md.ncatch, mutable=True, initialize=hydro_read('wET0'))             #ET0 [time x catchment] (mm)
+        md.wFlowLoss        = Param(md.ncatch, initialize=read('wFlowLoss'))                                #Flow loss [catchment] (-)
     #Groundwater
         opt= md.Options['Groundwater']
         md.wGwRech          = Param(md.ntime, md.naquifer, initialize=read('wGwRech',option=opt,time=ttime))    #Groundwater recharge [time x catchment] (Mm3/month)
@@ -319,13 +333,13 @@ class HydroeconomicOptimization():
         else:
             md.hp_country   = Param(md.nhpp, initialize={hp:md.pmarket_country[md.hp_pmarket[hp]] for hp in md.nhpp})
     #Power load segments
-        opt= md.Options['Energy production'] and md.Options['Energy market']
-        md.npload           = Set(initialize=read('eLoadDem',option=opt).keys() if md.Options['Load'] == 1 or opt == 1 else [1])            #Slices of power demand per time: day week, day week end, night [indice pload] (id)
-        md.eLoadDem         = Param(md.npload, initialize=read('eLoadDem',option=opt) if md.Options['Load'] == 1 or opt == 1 else {1:1})    #Share of demand per power load [pload] (-)
-        md.eLoadTime        = Param(md.npload, initialize=read('eLoadTime',option=opt) if md.Options['Load'] == 1 or opt == 1 else {1:1})   #Share of time per power load [pload] (-)
+        opt= md.Options['Energy production'] and md.Options['Energy market'] and md.Options['Load']
+        md.npload           = Set(initialize=read('eLoadDem',option=opt).keys() if opt == 1 else [1])            #Slices of power demand per time: day week, day week end, night [indice pload] (id)
+        md.eLoadDem         = Param(md.npload, initialize=read('eLoadDem',option=opt) if opt == 1 else {1:1})    #Share of demand per power load [pload] (-)
+        md.eLoadTime        = Param(md.npload, initialize=read('eLoadTime',option=opt) if opt == 1 else {1:1})   #Share of time per power load [pload] (-)
         if md.Options['Load capacity'] == 1: #Assumes either "Other power plants" or "Power technologies" are ON
             if md.Options['Power technologies'] == 0:
-                md.op_ptech = Param(md.nopp, initialize=read('op_ptech',option=opt))                      #Technology of Other power plant [pp] (id)
+                #md.op_ptech = Param(md.nopp, initialize=read('op_ptech',option=opt))                      #Technology of Other power plant [pp] (id)
                 md.nptech   = Set(initialize=set([read('op_ptech',option=opt)[op] for op in md.nopp]))    #Technologies are defined in Other power plants if Power technologies module is off [indice ptech] (id)
             md.eLoadCap     = Param(md.npload, md.nptech, md.nmonth, initialize=read('eLoadCap',option=opt))         #Load segment capacity factor of power technology [pload x ptech] (%)
 
@@ -342,16 +356,16 @@ class HydroeconomicOptimization():
         md.j_cropin         = Param(md.njactivity,initialize=read('j_cropin',option=opt)) #crop as input to activity (if relevant)
         md.j_cropout        = Param(md.njactivity,initialize=read('j_cropout',option=opt)) #crop as output to activity (if relevant)
         md.jProdCap         = Param(md.njactivity,initialize=read('jProdCap',option=opt)) # Production capacity (units/month)
-        md.jProdCost        = Param(md.njactivity,initialize=read('jProdCost',option=opt)) # Production costs (M$/month)
-        #md.jProdVal         = Param(md.njactivity,initialize=read('jProdVal',option=opt)) # Production value (M$/month)
-        md.jLandCons        = Param(md.njactivity,initialize=read('jLandCons',option=opt)) # Land consumption (1000 ha/month)
-        md.jLandProd        = Param(md.njactivity,initialize=read('jLandProd',option=opt)) # Land production (1000 ha/month)
-        md.jWatCons         = Param(md.njactivity,initialize=read('jWatCons',option=opt)) # Water consumptio (Mm3/month)
-        md.jWatProd         = Param(md.njactivity,initialize=read('jWatProd',option=opt)) # Water production (Mm3/month)
-        md.jPowCons         = Param(md.njactivity,initialize=read('jPowCons',option=opt)) # Power consumption (GWh/month)
-        md.jPowProd         = Param(md.njactivity,initialize=read('jPowProd',option=opt)) # Power production (Gwh/month)
-        md.jCropCons        = Param(md.njactivity,initialize=read('jCropCons',option=opt)) # Crop consumption (1000t/month)
-        md.jCropProd        = Param(md.njactivity,initialize=read('jCropProd',option=opt)) # Crop production (1000t/month)
+        md.jProdCost        = Param(md.njactivity,initialize=read('jProdCost',option=opt)) # Production costs (M$/units/month)
+        #md.jProdVal         = Param(md.njactivity,initialize=read('jProdVal',option=opt)) # Production value (M$/units/month)
+        md.jLandCons        = Param(md.njactivity,initialize=read('jLandCons',option=opt)) # Land consumption (1000 ha/units/month)
+        md.jLandProd        = Param(md.njactivity,initialize=read('jLandProd',option=opt)) # Land production (1000 ha/units/month)
+        md.jWatCons         = Param(md.njactivity,initialize=read('jWatCons',option=opt)) # Water consumptio (Mm3/units/month)
+        md.jWatProd         = Param(md.njactivity,initialize=read('jWatProd',option=opt)) # Water production (Mm3/units/month)
+        md.jPowCons         = Param(md.njactivity,initialize=read('jPowCons',option=opt)) # Power consumption (GWh/units/month)
+        md.jPowProd         = Param(md.njactivity,initialize=read('jPowProd',option=opt)) # Power production (GWh/units/month)
+        md.jCropCons        = Param(md.njactivity,initialize=read('jCropCons',option=opt)) # Crop consumption (1000t/units/month)
+        md.jCropProd        = Param(md.njactivity,initialize=read('jCropProd',option=opt)) # Crop production (1000t/units/month)
         
 #%%DECLARE DECISION VARIABLES###       
     #Water Module#
@@ -844,7 +858,7 @@ class HydroeconomicOptimization():
         #Surface water allocation [Mm3/phase] includes return flow but not losses
         md.xCulSurf = Expression(md.nyear,md.nfzone,md.nculture,md.nyphase,
                     rule= lambda md,y,fz,cul,yps:(sum(md.AwSUPPLY[kt,fz,cul]*md.xPhaseRatio[kt,fz,cul,yps] for kt in _ntime(y)) 
-                    if md.aIrrigation[md.fzone_type[fz]] == 1 else 0)) 
+                    if md.aIrrigation[md.fzone_type[fz]] == 1 else 0))
         #Groundwater allocation [Mm3/phase] includes return flow but not losses
         md.xCulPump = Expression(md.nyear,md.nfzone,md.nculture,md.nyphase,
                     rule= lambda md,y,fz,cul,yps:(sum(md.AwGWSUPPLY[kt,fz,cul]*md.xPhaseRatio[kt,fz,cul,yps] for kt in _ntime(y)) 
@@ -852,14 +866,20 @@ class HydroeconomicOptimization():
         #Crop production [1000t/year]
         def _xCulProd(md,y,fz,cul):
             ft=md.fzone_type[fz]
+            #rainfed - turn yield to 0 if yield function returns negative yield             
+            if md.aIrrigation[ft]==0: #for irrigated crops this cannot be used as depends on irrigation DV (use debug mode instead)
+                Penalty=sum(md.xkY[ft,cul,kyps]()*(1-md.xCulRain[y,fz,cul,kyps]()/md.xCulDem[y,fz,cul,kyps]())
+                            if md.xCulDem[y,fz,cul,kyps]() != 0 else 0 for kyps in md.nyphase)
+                if Penalty >= 1: #yield would be negative
+                    return 0 
             #Water to crops [Mm3/phase]
             CulWater={yps:(md.xCulSurf[y,fz,cul,yps]+md.xCulPump[y,fz,cul,yps])*(1-md.aCulRturn[ft,cul]) #Surface + pumping - return flows Mm3
                            +md.kha_to_Mha*md.xCULAREA[y,fz,cul]*md.xCulRain[y,fz,cul,yps]*md.mm_to_m3perha for yps in md.nyphase} # Rainfall Mm3
             #Penalty area according to yield water response function [1000ha]
             PenaltyArea=sum(md.xkY[ft,cul,kyps]*(md.xCULAREA[y,fz,cul] 
-                        -CulWater[kyps]/(md.xCulDem[y,fz,cul,kyps]*md.mm_to_m3perha*md.kha_to_Mha))
-                        if md.xCulDem[y,fz,cul,kyps]() > md.xCulRain[y,fz,cul,kyps]() 
-                        and md.xCulDem[y,fz,cul,kyps]() != 0 else 0 for kyps in md.nyphase)
+                                                 -CulWater[kyps]/(md.xCulDem[y,fz,cul,kyps]*md.mm_to_m3perha*md.kha_to_Mha))
+                            if md.xCulDem[y,fz,cul,kyps]() != 0 else 0 for kyps in md.nyphase)                
+                
             #Crop production [1000t/y] rmq: kha_to_Mha, and kt_to_Mt could be used as scaling factors for crop production and cultivated area           
             return md.aCulYield[y,md.fzone_type[fz],cul]*(md.xCULAREA[y,fz,cul] - PenaltyArea)*md.kha_to_Mha/md.kt_to_Mt #1000t/y
         md.xCulProd = Expression(md.nyear,md.nfzone,md.nculture, rule=_xCulProd)

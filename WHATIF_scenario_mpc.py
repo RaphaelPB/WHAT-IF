@@ -31,17 +31,17 @@ from result_analysis              import ResultAnalysis             #Exports res
 from model_predictive_control     import SolveScenario
 #For Model Predictive Control framework
 #from joblib import Parallel, delayed
-import multiprocess as mp
+import multiprocessing as mp
 
 #%% DEFINE PARAMETERS
 #OPTIONS
 UPDATE = 0 #0 updates all parameters, 1 updates only selected parameters
-epll=20 #Maximum number of parallel runs for ensemble forecast 
-PARALLEL_scenario = 1 #Run scenarios in parallel (BOTH IS NOT POSSIBLE)
-RESULTFOLDER = 'scenario'#+time.strftime("%a%d_%m_%Y_%Hh%M")
+epll=24 #Maximum number of parallel runs for ensemble forecast 
+PARALLEL_scenario = 0 #Run scenarios in parallel (BOTH IS NOT POSSIBLE)
+RESULTFOLDER = 'mpc'+'_'+time.strftime("%a%d_%m_%Y_%Hh%M")
 EXPORT = 'all' #'all' powerBI files + following, 'xlsx': individual excel files + following, 'txt': selected results + excel of all selected results
 SOLVER = 'ipopt' #'cplex'
-SOLVERPATH = 0#'~/CoinIpopt/bin/ipopt' # 0 if not needed #'~/miniconda3/pkgs/ipopt_bin-3.7.1-10/bin/ipopt'#
+SOLVERPATH = 0#'~/CoinIpopt/bin/ipopt' # 0 if not needed
 
 #%% Start parallel solving of problems
 if __name__ == '__main__':
@@ -50,12 +50,12 @@ if __name__ == '__main__':
               'output':os.path.join(dirname, 'Results',RESULTFOLDER),
               'export':EXPORT}    
     #Define path to data
-    Main            = paths['data'] + os.sep + 'MainFile.xlsx'
-    Water           = paths['data'] + os.sep + 'WaterModule.xlsx'
-    Agriculture     = paths['data'] + os.sep + 'AgricultureModule.xlsx'
-    CropMarket      = paths['data'] + os.sep + 'CropMarketModule.xlsx'
-    Energy          = paths['data'] + os.sep + 'EnergyModule.xlsx'
-    Parameter       = paths['data'] + os.sep + 'Parameters.txt' #parameters (python dictionnaries) saved as txt    
+    Main            = paths['data'] + os.sep + 'MainFile_ex.xlsx'
+    Water           = paths['data'] + os.sep + 'WaterModule_ex.xlsx'
+    Agriculture     = paths['data'] + os.sep + 'AgricultureModule_ex.xlsx'
+    CropMarket      = paths['data'] + os.sep + 'CropMarketModule_ex.xlsx'
+    Energy          = paths['data'] + os.sep + 'EnergyModule_ex.xlsx'
+    Parameter       = paths['data'] + os.sep + 'Parameterspy37.txt' #parameters (python dictionnaries) saved as txt    
     #Collect parameters
     t=time.time()
     print('Harvesting parameters...')
