@@ -38,10 +38,10 @@ import multiprocess as mp
 UPDATE = 0 #0 updates all parameters, 1 updates only selected parameters
 epll=20 #Maximum number of parallel runs for ensemble forecast 
 PARALLEL_scenario = 1 #Run scenarios in parallel (BOTH IS NOT POSSIBLE)
-RESULTFOLDER = 'base_mpc_const0'#+time.strftime("%a%d_%m_%Y_%Hh%M")
+RESULTFOLDER = 'scenario'#+time.strftime("%a%d_%m_%Y_%Hh%M")
 EXPORT = 'all' #'all' powerBI files + following, 'xlsx': individual excel files + following, 'txt': selected results + excel of all selected results
 SOLVER = 'ipopt' #'cplex'
-SOLVERPATH = '~/CoinIpopt/bin/ipopt' # 0 if not needed #'~/miniconda3/pkgs/ipopt_bin-3.7.1-10/bin/ipopt'#
+SOLVERPATH = 0#'~/CoinIpopt/bin/ipopt' # 0 if not needed #'~/miniconda3/pkgs/ipopt_bin-3.7.1-10/bin/ipopt'#
 
 #%% Start parallel solving of problems
 if __name__ == '__main__':
@@ -55,7 +55,7 @@ if __name__ == '__main__':
     Agriculture     = paths['data'] + os.sep + 'AgricultureModule.xlsx'
     CropMarket      = paths['data'] + os.sep + 'CropMarketModule.xlsx'
     Energy          = paths['data'] + os.sep + 'EnergyModule.xlsx'
-    Parameter       = paths['data'] + os.sep + 'Parameters40ypy37.txt' #parameters (python dictionnaries) saved as txt    
+    Parameter       = paths['data'] + os.sep + 'Parameters.txt' #parameters (python dictionnaries) saved as txt    
     #Collect parameters
     t=time.time()
     print('Harvesting parameters...')
@@ -70,7 +70,7 @@ if __name__ == '__main__':
     #Choose solver
     solver = SolverFactory(SOLVER,executable=SOLVERPATH) if SOLVERPATH != 0 else SolverFactory(SOLVER)
     if solver.name == 'ipopt':
-        solver.options['linear_solver']='ma97' #PARDISO
+        #solver.options['linear_solver']='ma97' #PARDISO
         #solver.options['mu_strategy']='adaptive' #this option is found to speed up problem resolution but is unstable for MPC
         solver.options['bound_relax_factor']=10**-12
         

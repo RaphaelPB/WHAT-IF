@@ -30,21 +30,21 @@ from data_collection              import Database                   #Stores all 
 from hydroeconomic_optimization   import HydroeconomicOptimization  #Generates the hydroeconomic optimization model
 from result_analysis              import ResultAnalysis             #Exports results to excel sheets
 
-
 #%%OPTIONS - MODIFY BY USER
-SCENARIO        = 'WHATIF_main' #Scenario to be run, 'WHATIF_main' is default
-NEWSHEET        = 1 #1 creates a new sheet, 0 fills existing sheet
-UPDATE          = 1 #0 updates all parameters, 1 updates only selected parameters (through the "Info" sheet in the parameters excel files)
+SCENARIO    = 'DEVsemidry' #Scenario to be run, 'WHATIF_main' is default
+RESULTFOLDER= 'WHATIF_main'#+time.strftime("%d_%m_%Y_%Hh%M") #automatically generates names based on time and date (avoids erasing previous results)
+NEWSHEET    = 1 #1 creates a new sheet, 0 fills existing sheet
+UPDATE      = 0 #0 updates all parameters, 1 updates only selected parameters (through the "Info" sheet in the parameters excel files)
+EXPORT      = 'all' #'all' powerBI files + following, 'xlsx': individual excel files + following, 'txt': selected results + excel of all selected results
+SOLVER      = 'ipopt' #'cplex'
+SOLVERPATH  = 0# 0 is default, precise path only if required by solver #'~/CoinIpopt/bin/ipopt' 
 
 #%% DEFINE PARAMETERS
-    #Data Folder
+#Data Folder
 DataFolderPath  = os.path.join(dirname, 'Data')
-ResultFolderPath= os.path.join(dirname, 'Results',time.strftime("%a%d_%m_%Y_%Hh%M"))
-    
+ResultFolderPath= os.path.join(dirname, 'Results', RESULTFOLDER)    
 #Excel output file
 OutPath         = ResultFolderPath + os.sep + 'modelrun_' + time.strftime("%d_%m_%Y_%Hh%M") + '.xlsx'
-    #Python obj output file (txt)
-ResultExport    = ResultFolderPath + os.sep + 'RESULTS.txt' #results (python objects) saved as txt
 
 #Define path to data
 Main            = DataFolderPath + os.sep + 'MainFile.xlsx'
@@ -53,7 +53,7 @@ Agriculture     = DataFolderPath + os.sep + 'AgricultureModule.xlsx'
 CropMarket      = DataFolderPath + os.sep + 'CropMarketModule.xlsx'
 Energy          = DataFolderPath + os.sep + 'EnergyModule.xlsx'
 Investment      = DataFolderPath + os.sep + 'InvestmentModule.xlsx'
-Param           = DataFolderPath + os.sep + 'Parameters40ypy37.txt' #parameters (python dictionnaries) saved as txt
+Param           = DataFolderPath + os.sep + 'Parameters.txt' #parameters (python dictionnaries) saved as txt
 
 #Collect parameters
 t=time.time()
@@ -65,9 +65,8 @@ if parameters.val['Options']['Investment module',parameters.val['sOptions'][SCEN
     parameters.harvest_all([Investment]) 
 #Save parameters    
 parameters.save(Param)
-#Collect extra hydrology parameters
-if parameters.val['sClimate'][SCENARIO] not in parameters.val['wRunOff'].keys():
-    parameters.load_hydrology(DataFolderPath,scenarios=[parameters.val['sClimate'][SCENARIO]])
+#Collect parameters in .csv files
+parameters.load_csv(DataFolderPath,SCENARIO)
 
 print(time.time()-t)
 print('*Parameters harvested*')
@@ -84,12 +83,10 @@ print('*Model created*')
 #%% SOLVE MODEL
 print('Solving model...')
 t=time.time()
-# Option description https://www.pserc.cornell.edu/matpower/docs/ref/matpower5.0/ipopt_options.html
-# https://groups.google.com/forum/#!topic/pyomo-forum/hDA7DoVSYJY
-#Choose solver
-solver = SolverFactory('cplex')
+solver = SolverFactory(SOLVER,executable=SOLVERPATH) if SOLVERPATH != 0 else SolverFactory(SOLVER)
 #if solver.name == 'ipopt':
-#    solver.options['linear_solver']='mumps' 
+    #solver.options['linear_solver']='ma97'
+    #solver.options['mu_strategy']='adaptive' 
     #solver.options['bound_relax_factor']=0
 
 solverstatus    = solver.solve(HOM.model)#,tee=True,keepfiles=True,logfile=os.path.join(dirname, 'logREAD.log')) #
@@ -115,12 +112,14 @@ if not os.path.exists(ResultFolderPath):
 #Read and export results
 exppath = ResultFolderPath + os.sep + SCENARIO + '.xlsx' 
 result_analysis = ResultAnalysis()
-results=result_analysis.readresults(HOM.model,parameters,solverstatus,scenario=SCENARIO,PRINT=1) #   
-result_analysis.export_to_excel(results,exppath,NEWSHEET=NEWSHEET) #export formated results to excel 
-#result_analysis.export_all_DV(HOM.model,ResultFolderPath,scenario=SCENARIO) #export all decision variables
-#result_analysis.export_mass_balances(results,ResultFolderPath,scenario=SCENARIO) #export mass balances (for powerBI)
-#result_analysis.export_index_mapping(HOM.model,os.path.join(ResultFolderPath,'Mapping')) #export index mapping/connections (for powerBI)
-#selectedresults=result_analysis.selectedresults(HOM.model,parameters,scenario=SCENARIO)
-#pickle.dump(selectedresults,open(os.path.join(ResultFolderPath,SCENARIO + '.txt'),"wb"))
+if EXPORT in ['xlsx','all']:
+    results=result_analysis.readresults(HOM.model,parameters,solverstatus,scenario=SCENARIO,PRINT=1,VALIDATION=1) #   
+    result_analysis.export_to_excel(results,exppath,NEWSHEET=NEWSHEET,VALIDATION=1) #export formated results to excel 
+if EXPORT in ['all']:
+    result_analysis.export_all_DV(HOM.model,ResultFolderPath,scenario=SCENARIO) #export all decision variables
+    result_analysis.export_mass_balances(results,ResultFolderPath,scenario=SCENARIO) #export mass balances (for powerBI)
+    result_analysis.export_index_mapping(HOM.model,os.path.join(ResultFolderPath,'Mapping')) #export index mapping/connections (for powerBI)
+selectedresults=result_analysis.selectedresults(HOM.model,parameters,scenario=SCENARIO)
+pickle.dump(selectedresults,open(os.path.join(ResultFolderPath,SCENARIO + '.txt'),"wb"))
 print(time.time()-t)
 print('*Result Exported*')
