@@ -1,5 +1,7 @@
 # WHAT-IF: Supporting water infrastructure investment planning with hydroeconomic optimization models 
 
+**If you want to create your own WHAT-IF case study - change the branch from "master" to "example" to get a simple example case to start from**
+
 The WHAT-IF (Water, Hydropower, Agriculture Tool for Investment and Financing) model is an open source decision support tool 
 distributed under the GPLv3 license and is described in the [HESS publication](https://www.hydrol-earth-syst-sci-discuss.net/hess-2019-167/):
 > WHAT-IF: an open-source decision support tool for water infrastructure investment planning within the Water-Energy-Food-Climate Nexus
@@ -52,9 +54,12 @@ the simpliest way to manage your pyhton packages and versions
 
 To do so, in the anaconda prompt, run:
 
-`conda env create -f WHATIF_py37.yml` 
+* `conda config --add channels conda-forge`
+* `conda create -n WHATIF_py37 python=3.7.3`
+* `conda install -n WHATIF_py37 openpyxl xlsxwriter xlrd pyomo=5.6.2 pandas numpy multiprocess ipopt glpk`
+* `conda activate WHATIF_py37` 
 
-* Recommended solvers are cplex (free for academics) or glpk (open-source)
+* Recommended solvers are ipopt (non-linear), cplex (free for academics) or glpk (open-source)
 * WHAT-IF is now only released with Python 3.7
 
 
