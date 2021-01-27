@@ -23,24 +23,30 @@ import pickle
 import pandas as pd
 dirname = os.path.abspath(os.path.dirname(__file__))
 sys.path.append(os.path.join(dirname, 'bin'))
-
+import locale
+#set decimal and separator (for handling of csv files)
+langlocale = locale.getdefaultlocale()[0]
+locale.setlocale(locale.LC_ALL, langlocale)
+CSVDECIMAL = locale.localeconv()['decimal_point']
+CSVSEPARATOR = ','
+if CSVDECIMAL == ',':
+    CSVSEPARATOR = ';'
 
 #%%OPTIONS - MODIFY BY USER
-#SCENFILE=os.path.join(dirname,'Data','Scenarios_to_compare.xlsx')
-
-SHEET='investAll'
-FOLDERNAME='iALL_mpc3b_naThu07_05_2020_17h08'
+SHEET='main'
+FOLDERNAME='WHATIF_main'
 DIFFMODE=0 # if=1 exports relative results to POWERBI, instead of absolute (=0)
 SCENFILE='Scenarios_to_compare.xlsx'
 result_path = os.path.join(dirname,'Results',FOLDERNAME)
+
 #%%#####################################
 #               FUNCTIONS
 
 #Export panda dataframe to .csv
-def pd_to_csv(folder,file,pdata):
+def pd_to_csv(folder,file,pdata,iindex=True):
     file = os.path.join(folder,file)
     if isinstance(pdata,pd.DataFrame):
-        return pdata.to_csv(file,sep=';',decimal=',',index='False')
+        return pdata.to_csv(file,sep=CSVSEPARATOR,decimal=CSVDECIMAL,index=iindex)
 #Transfor dictionary in panda dataframe (for specific dic structure)
 def dict_to_pd(dic):
     if dic != {}:
@@ -48,7 +54,9 @@ def dict_to_pd(dic):
         pdata=pd.concat({k: pd.DataFrame(v).T for k, v in dic.items()}, axis=0)
         if not pdata.empty:
             pdata=pdata.stack().unstack(0)
-        return pdata
+            return pdata #WARNING: indented so that empty dataframes are ignored, might result in problems if all result exclude that component
+        else:
+            return pd.DataFrame(columns=pdata.index.levels[0])
 
 def aggregate_scenarios_to_csv(scenarios,vardic,outpath,keytype='tuple',indexname=0,elist=0,refscen=0,renamecol=1):
     ##scenarios: list of scenarios
@@ -79,53 +87,77 @@ def aggregate_scenarios_to_csv(scenarios,vardic,outpath,keytype='tuple',indexnam
         elist=[]
         for scen in scenarios:
             for key in vardic[scen].keys():
-                if key != 'AlCULAREAXXXX': #solve troubles
-                    elist.append(key)        
+                elist.append(key)        
         elist=set(elist)
-    
+
     for elem in elist:
+        print(elem)
+        #scenarios that contain that element
+        if keytype=='tuple':
+            scenpresent=[scen for scen in scenarios if elem in vardic[scen].keys()] #scenarios that contain that element
+        elif keytype=='nested': #ADD could be deleted as vardic[scen][elem] is usually not empty even if no data but is the years
+            scenpresent=[scen for scen in scenarios if vardic[scen][elem]!={}] #scenarios that contain that element
+            
         if refscen==0:
             #assemble different scenarios
             if keytype=='tuple':
-                frames=[pd.Series(vardic[scen][elem]) for scen in scenarios if elem in vardic[scen].keys()] 
+                frames=[pd.Series(vardic[scen][elem]) for scen in scenpresent] 
             elif keytype=='nested':
-                frames=[dict_to_pd(vardic[scen][elem]) for scen in scenarios if vardic[scen][elem]!={}]
+                frames=[dict_to_pd(vardic[scen][elem]) for scen in scenpresent]
         else:
             #assemble different scenarios and subtract ref scenario
             if keytype=='tuple':
-                frames=[diff_panda(pd.Series(vardic[scen][elem]),pd.Series(vardic[refscen[scen]][elem])) for scen in scenarios if elem in vardic[scen].keys()]
+                frames=[diff_panda(pd.Series(vardic[scen][elem]),pd.Series(vardic[refscen[scen]][elem])) for scen in scenpresent]
             elif keytype=='nested':
-                frames=[diff_panda(dict_to_pd(vardic[scen][elem]),dict_to_pd(vardic[refscen[scen]][elem])) for scen in scenarios if vardic[scen][elem]!={}]
+                frames=[diff_panda(dict_to_pd(vardic[scen][elem]),dict_to_pd(vardic[refscen[scen]][elem])) for scen in scenpresent]
         
+        #discard scenarios that do not have the same amount of index levels (e.g. different model options - avoid concatenation problems) - WARNING- they will not appear in the final result
+        nlevels=[pdat.index.nlevels for pdat in frames] #number of levels in each dataframe
+        nlevelmax=max(set(nlevels), key = nlevels.count) #most occuring number of levels
+        framestokeep=[frames[k] for k in range(len(frames)) if nlevels[k]==nlevelmax] #only keep frames with most common number of levels
+        scentokeep=[scenpresent[k] for k in range(len(frames)) if nlevels[k]==nlevelmax] #only keep scenarios which frame has the most common number of levels
         #concatane to single dataframe
         if refscen==0:
-            pdata=pd.concat(frames,keys=[scen for scen in scenarios if elem in vardic[scen].keys()])
+            pdata=pd.concat(framestokeep,keys=[scen for scen in scentokeep])
         else:
-            pdata=pd.concat(frames,keys=[scen+'_'+refscen[scen] for scen in scenarios if elem in vardic[scen].keys()])
+            pdata=pd.concat(framestokeep,keys=[scen+'_'+refscen[scen] for scen in scentokeep])
         if keytype=='tuple':
             pdata=pdata.to_frame() 
         #elif keytype=='nested':
          #   pdata=pd.concat(frames,keys=[scen for scen in scenarios if elem in vardic[scen].keys()])
         
-        if not pdata.empty:
+        if not pdata.empty: #don t export e
             #rename columns and indexes
             if indexname != 0:
                 indexname[elem].insert(0,'scenario')
                 pdata.index.names=indexname[elem]
                 if renamecol==1:
                     pdata.columns=[elem]
-            #export to csv
-            filename=str(elem)+'.csv'
-            pd_to_csv(outpath,filename,pdata=pdata)
-
-        if indexname != 0:
-            for elem in indexname.keys():
-                if elem not in elist:
-                    indexname[elem].insert(0,'scenario')
-                    pdata=pd.DataFrame(columns=indexname[elem]+[elem])
-                    filename=str(elem)+'.csv'
-                    pdata.to_csv(os.path.join(outpath,filename),sep=';',decimal=',',index=False)
-                    
+            iindex=True #for export
+        elif pdata.empty and keytype=='nested': #when crop market or power market off
+            if indexname != 0:
+                indexname[elem].insert(0,'scenario')
+                for k in range(len(indexname[elem])):
+                    pdata.insert(k,indexname[elem][k],0)
+                iindex=False #for export
+        elif pdata.empty and keytype=='tuple': #decision variable present but void (probably modelling/data error but not critical)
+            if elem in indexname.keys():
+                indexname[elem].insert(0,'scenario')
+                pdata=pd.DataFrame(columns=indexname[elem]+[elem])
+                iindex=False #for export
+        #export to csv
+        filename=str(elem)+'.csv'
+        pd_to_csv(outpath,filename,pdata,iindex=iindex)
+    
+    #Create empty datasets for not exported Decision variables
+    if indexname != 0:
+        for elem in indexname.keys():
+            if elem not in elist:
+                indexname[elem].insert(0,'scenario')
+                pdata=pd.DataFrame(columns=indexname[elem]+[elem])
+                filename=str(elem)+'.csv'
+                pd_to_csv(outpath,filename,pdata,iindex=False)
+                #pdata.to_csv(os.path.join(outpath,filename),sep=CSVSEPARATOR,decimal=CSVDECIMAL,index=False)
 #%%#####################################
 #        COLLECT INFORMATION
         
@@ -146,10 +178,10 @@ DVpath=os.path.join(result_path,'DecisionVariables')
 VarIndex={
  'AcEXTPROD':['nyear', 'ncmarket', 'ncrop'],
  'AcPROD':['nyear', 'nfzone', 'ncrop'],
- 'AcSUPPLY':['nyear', 'ncmarket', 'ncrop','ncdstep'],
+ 'AcSUPPLY':['nyear', 'ncmarket', 'ncrop'],#,'ncdstep'],
  'AcTRANS':['nyear', 'nctrans', 'ncrop'],
  'AlCULAREA':['nyear', 'nfzone', 'nflied', 'nfieldculture'],
- 'CULAREA':['nyear','nfzone','nculture'],
+ 'xCULAREA':['nyear','nfzone','nculture'],
  'AwSUPPLY':['ntime', 'nfzone', 'nculture'],
  'DUMYCROP':['nyear', 'nfzone', 'ncrop'],
  'DUMYEFLOW':['ntime', 'neflow'],
@@ -167,8 +199,10 @@ VarIndex={
  'WwRSTORAGE':['ntime', 'nres'],
  'WwSUPPLY':['ntime', 'nuser'],
  'WwTRANSFER':['ntime', 'ntransfer'],
+ 'JjPROD':['ntime','njactivity'],
+ 'IbINVEST':['ninvphase','ninvest'],
  'energy_shadow':['ntime','npload','npmarket'],
- 'crop_shadow':['nyear','ncmarket','ncrop','ncdstep'],
+ 'crop_shadow':['nyear','ncmarket','ncrop'],#,'ncdstep'],
  'water_shadow':['ntime','ncatch']}
 
 #load all decision variables (DV) from model runs
@@ -195,11 +229,4 @@ ScenarioB={scen:pickle.load(open(os.path.join(result_path,scen+'_Balances.txt'),
 REF = 0 if DIFFMODE == 0 else refscen
 aggregate_scenarios_to_csv(scenarios,ScenarioB,Bpath,keytype='nested',indexname=BalIndex,elist=0,refscen=REF,renamecol=0)
 
-#for k in range(4):
-#    frames=[dict_to_pd(ScenarioB[scen][k]) for scen in scenarios if ScenarioB[scen][k]!={}] #assemble Balances from different scenarios
-#    if frames != []:
-#        pdata=pd.concat(frames,keys=scenarios)  #concatane into single dataframe
-#        pdata.index.names=BalIndex[k] #rename indexes
-#        filename=['EconomicBalance.csv','EnergyBalance.csv','CropBalance.csv','WaterBalance.csv'][k]+'.csv'
-#        pd_to_csv(Balancepath,filename,pdata=pdata)
         

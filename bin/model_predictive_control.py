@@ -61,9 +61,14 @@ def knn_bootstrap(parameters,TIME,k=20,nes=1,flen=23,ntime=0,climscen='base',wei
     if weighted in [1,'ens_class']:
         k=nes
     #Hydrology data
-    Q = parameters.val['wRunOff'][climscen]
-    P = parameters.val['wRainFall'][climscen]
-    E = parameters.val['wET0'][climscen]
+    if TIME['climscen'] is not False: #select runoff scenario
+        Q=parameters.val['wRunOff'][TIME['climscen']]
+        P=parameters.val['wRainFall'][TIME['climscen']]
+        E=parameters.val['wET0'][TIME['climscen']]     
+    else: #no runoff scenario
+        Q=parameters.val['wRunOff']
+        P=parameters.val['wRainFall']
+        E=parameters.val['wET0']
 
     #Indexes
     ts=TIME['t']    
@@ -172,21 +177,28 @@ def updatehydrology(TIME,parameters,forecast): #UPDATES HYDROLOGY
         ctime = [t for t in ctime if TIME['t']-12*TIME['climate_horizon'] <= t < TIME['t']]
     cyears = sum(1 for t in ctime if (t-TIME['t'])%12==0)
     ncatch = parameters.val['ncatch'] #catchments
-    climscen= parameters.val['sClimate'][TIME['ss']]
+    if TIME['climscen'] is not False: #select runoff scenario
+        Q=parameters.val['wRunOff'][TIME['climscen']]
+        P=parameters.val['wRainFall'][TIME['climscen']]
+        E=parameters.val['wET0'][TIME['climscen']]     
+    else: #no runoff scenario
+        Q=parameters.val['wRunOff']
+        P=parameters.val['wRainFall']
+        E=parameters.val['wET0']
     #observed hydrology
-    Qo = {(t,c):parameters.val['wRunOff'][climscen][t,c] for t in ptime for c in ncatch if t <= pftime}
-    Po = {(t,c):parameters.val['wRainFall'][climscen][t,c] for t in ptime for c in ncatch if t <= pftime}
-    Eo = {(t,c):parameters.val['wET0'][climscen][t,c] for t in ptime for c in ncatch if t <= pftime}
+    Qo = {(t,c):Q[t,c] for t in ptime for c in ncatch if t <= pftime}
+    Po = {(t,c):P[t,c] for t in ptime for c in ncatch if t <= pftime}
+    Eo = {(t,c):E[t,c] for t in ptime for c in ncatch if t <= pftime}
     #forecasted hydrology
     Qf = {(t,c):forecast['Q_ef'][t,c] for t in ptime for c in ncatch if pftime<t<=pftime+aftime}    
     Pf = {(t,c):forecast['P_ef'][t,c] for t in ptime for c in ncatch if pftime<t<=pftime+aftime}    
     Ef = {(t,c):forecast['E_ef'][t,c] for t in ptime for c in ncatch if pftime<t<=pftime+aftime}
     #average hydrology (climatology)
-    Qa = {(t,c):sum(parameters.val['wRunOff'][climscen][tt,c] for tt in ctime if (tt-t)%12==0)/cyears 
+    Qa = {(t,c):sum(Q[tt,c] for tt in ctime if (tt-t)%12==0)/cyears 
           for t in ptime for c in ncatch if t>pftime+aftime}    
-    Pa = {(t,c):sum(parameters.val['wRainFall'][climscen][tt,c] for tt in ctime if (tt-t)%12==0)/cyears 
+    Pa = {(t,c):sum(P[tt,c] for tt in ctime if (tt-t)%12==0)/cyears 
           for t in ptime for c in ncatch if t>pftime+aftime}    
-    Ea = {(t,c):sum(parameters.val['wET0'][climscen][tt,c] for tt in ctime if (tt-t)%12==0)/cyears 
+    Ea = {(t,c):sum(E[tt,c] for tt in ctime if (tt-t)%12==0)/cyears 
           for t in ptime for c in ncatch if t>pftime+aftime}
 
     #assemble
@@ -562,7 +574,7 @@ def SolveScenario(ss,parameters_in,solver,paths):
     #Define MPC options
     TIME={} #Option dictionnary
     MPC=parameters.val['Options']['MPC',parameters.val['sOptions'][ss]]
-    if MPC != 0: #
+    if MPC == MPC and MPC != 0: #
         #Model Predictive Control Parameters
         TIME['average_forecast']=parameters.val['Options']['Average forecast',parameters.val['sOptions'][ss]] #Horizon at which climatology is used
         TIME['prediction_horizon']=int(MPC.split('#')[0]) #Prediction horizon (=size of MPC model)
@@ -580,7 +592,10 @@ def SolveScenario(ss,parameters_in,solver,paths):
         TIME['YWR']=parameters.val['Options']['Yield water response',parameters.val['sOptions'][ss]] #yield water response option for main model
         if TIME['YWR'] != 'nonlinear':
             parameters.val['Options']['Crop choice',parameters.val['sOptions'][ss]]='fixed' #crop choice is fixed for main and monthly model        
-        climscen = parameters.val['sClimate'][ss] #climate scenario for forecasts
+        if 'wRunOff' in parameters.scen.keys(): #scenarios on runoff exist
+            TIME['climscen'] = parameters.val[parameters.scen['wRunOff']][ss] #climate scenario for forecast
+        else:
+            TIME['climscen'] = False
         TIME['ss']=ss #scenario 
         TIME['solver']=solver #solver
         #Define if fraework considers stationarity of hydrology
@@ -620,7 +635,7 @@ def SolveScenario(ss,parameters_in,solver,paths):
                     TIME['storage_value']=storage_shadow_value(ss,parameters,solver,TIME)
                     print(ss,TIME['storage_value'])                                                 
                 #Generate forecasts 
-                forecast = knn_bootstrap(parameters,TIME,flen=TIME['flen'],climscen=climscen,nes=nEM,weighted=weighted)                
+                forecast = knn_bootstrap(parameters,TIME,flen=TIME['flen'],nes=nEM,weighted=weighted)                
                 #Get previous storage levels and generic capacity investments    
                 rstorage = {res:HOM.model.WwRSTORAGE[t-1,res].value for res in HOM.model.nres} if TIME['year'] != TIME['y0'] else {}
                 gencap   = {(pt,pm):sum(HOM.model.EeGENCAP[ky,pt,pm].value for ky in HOM.model.nyear 
@@ -648,7 +663,7 @@ def SolveScenario(ss,parameters_in,solver,paths):
             #Run ensemble monthly model (with fixed yearly decision variables)          
             #Generate forecasts
             flen=TIME['flen']-(TIME['t']-TIME['tini']) #forecast lenght
-            forecast = knn_bootstrap(parameters,TIME,flen=flen,climscen=climscen,nes=nEM,weighted=weighted)
+            forecast = knn_bootstrap(parameters,TIME,flen=flen,nes=nEM,weighted=weighted)
             #Run ensemble members
             if blocksolve == 1:
                 mdecisions=[BlockEnsembleModel_month(parameters,variables,forecast,TIME,solver,rstorage=rstorage,gencap=gencap)]
@@ -704,5 +719,5 @@ def SolveScenario(ss,parameters_in,solver,paths):
     outputpath=paths['output'] + os.sep + ss + '.txt' 
     print(ss,' saving to text file')
     pickle.dump(output,open(outputpath,"wb"))
-    print('scenario '+ ss +'solved in '+str(time.time()-tt)+' seconds')
+    print('scenario '+ ss +' solved in '+str(time.time()-tt)+' seconds')
     return output      

@@ -40,6 +40,9 @@ class ResultAnalysis():
         All_DV={str(var):{index:var[index].value*descaling(str(var)) for index in var} for var in md.component_objects(Var)} #Save all decision variables to dictionary
         if md.Options['Yield water response']=='linearized':
             All_DV['AlCULAREA']={(y,fz,fd,fc):sum(md.AlCULAREA[y,fz,fd,fc,yp].value for yp in md.nypath) for y,fz,fd,fc,yy in md.AlCULAREA}
+        All_DV['xCULAREA'] = {index:md.xCULAREA[index]() for index in md.xCULAREA}
+        if md.Options['Crop demand elasticity'] in [0,'linearized']:
+            All_DV['AcSUPPLY']={(y,cm,cr):sum(md.AcSUPPLY[y,cm,cr,kcds].value for kcds in md.ncdstep) for y,cm,cr,ccds in md.AcSUPPLY}
         #Constraints
         constrlist = [const.name for const in md.component_objects(Constraint)]
         if 'engy_balance' in constrlist:
@@ -48,8 +51,7 @@ class ResultAnalysis():
             All_DV['crop_shadow']   = {index:md.dual[md.agr_cropbalance[index]] for index in md.agr_cropbalance}
         if 'water_waterbalance' in constrlist:
             All_DV['water_shadow']  = {index:md.dual[md.water_waterbalance[index]] for index in md.water_waterbalance}
-        if md.find_component('CULAREA') is not None:
-            All_DV['CULAREA']   = {index:md.CULAREA[index].value for index in md.CULAREA} 
+                
         #oo['parameters']=parameters
         #oo['scenario']=scenario
         expfile = expfolder + os.sep + scenario + '_DV.txt' 
@@ -1050,6 +1052,7 @@ class ResultAnalysis():
         simple_map('nfzone','ncatch','fzone_catch')
         simple_map('nfzone','ncmarket','fzone_cmarket')
         simple_map('nfzone','ncountry','fzone_country')
+        simple_map('nfzone','nftype','fzone_ftype')
         simple_map('nculture','ncrop','culture_crop')
         simple_map('ncmarket','ncountry','cmarket_country')
         simple_map('nhpp','nres','hp_res')
