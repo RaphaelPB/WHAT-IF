@@ -47,7 +47,7 @@ FIXPOWER=1
 VARIANTMETHOD=0 #alternative considering a single weighted forecast for short term, and ensemble forecast for long-term with equal proabilities
 fskill=6 #boundary between short term and long term, corresponds to forecasts skill
 #%% knn_bootstrap KNN HYDROLOGY GENERATOR
-def knn_bootstrap(parameters,TIME,k=20,nes=1,flen=23,ntime=0,climscen='base',weighted=0):
+def knn_bootstrap(parameters,TIME,k=20,nes=1,flen=23,ntime=0,weighted=0):
     #t=time.time()
     #parameters = Model parameters
     #ts = time step to start the forecast from
@@ -76,7 +76,7 @@ def knn_bootstrap(parameters,TIME,k=20,nes=1,flen=23,ntime=0,climscen='base',wei
         tfin = max(parameters.val['ntime'])
         ntime= np.array([t for t in parameters.val['ntime'] if t != ts and t<tfin-flen and (TIME['stationary']==1 or t<ts)])
         # t = ts is not sampled as we use same time series for bootstrapping and planning - if non-stationary mode we use only past        
-    ncatch  = parameters.val['ncatch']    
+    ncatch  = parameters.val['ncatch']
             
     #Create feature vector and observed pattern
     Di=np.array([sum(Q[ts,c] for c in ncatch),
@@ -324,7 +324,7 @@ def create_ensemble_block_model(TIME,parameters,ensforecast):
     #define multi index of variables+index that need to be linked to each other (=variable of this time step)
     linkvar={} #dictionary containing indexes of variables that need to be linked
     for var in model.ensemble[0].component_objects(Var): #ensemble[0] arbitrary reference model
-        indexlist=[index for index in var if index[0]==TIME['t']] #WARNING if other index is same as time
+        indexlist=[index for index in var if index[0] in range(TIME['t'],TIME['t']+TIME['frequency'])] #WARNING if other index is same as time
         if var.local_name in ['EeGENCAP','AlCULAREA']: #
             indexlist=[index for index in var if index[0]==TIME['year']] #Yearly decisions of current year need to be the same in each ensemble member
         for k in range(len(indexlist)):
@@ -570,13 +570,24 @@ def SolveScenario(ss,parameters_in,solver,paths):
     #if parameters.val['sClimate'][ss] not in parameters.val['wRunOff'].keys():
     #    parameters.load_hydrology(paths['data'],scenarios=[parameters.val['sClimate'][ss]])
     print('formulating scenario: ' + ss)    
-       
-    #Define MPC options
+           
     TIME={} #Option dictionnary
-    MPC=parameters.val['Options']['MPC',parameters.val['sOptions'][ss]]
+
+    #Define model
+    #save yield water rersponse and crop choice parameter
+    TIME['crop_choice']=parameters.val['Options']['Crop choice',parameters.val['sOptions'][ss]] #crop choice option for main model
+    TIME['YWR']=parameters.val['Options']['Yield water response',parameters.val['sOptions'][ss]] #yield water response option for main model
+    if TIME['YWR'] != 'nonlinear':
+        parameters.val['Options']['Crop choice',parameters.val['sOptions'][ss]]='fixed'
+    #Create main model
+    HOM = HydroeconomicOptimization(parameters,scenario=ss) #main model
+    
+    #Define MPC options
+    oopt=HOM.model.Options #shortcut for options
+    MPC=oopt['MPC'] if 'MPC' in oopt.keys() else 0
     if MPC == MPC and MPC != 0: #
         #Model Predictive Control Parameters
-        TIME['average_forecast']=parameters.val['Options']['Average forecast',parameters.val['sOptions'][ss]] #Horizon at which climatology is used
+        TIME['average_forecast']=oopt['Average forecast'] #Horizon at which climatology is used
         TIME['prediction_horizon']=int(MPC.split('#')[0]) #Prediction horizon (=size of MPC model)
         TIME['perfect_forecast']=int(MPC.split('#')[1]) #Perfect forecast horizon (real hydrology is used at this horizon)
         nEM=int(MPC.split('#')[2]) #Number of ensemble members (if =1 weighted forecast)
@@ -584,58 +595,57 @@ def SolveScenario(ss,parameters_in,solver,paths):
         weighted= 1 if ensoption in ['w','bm','bw','ec'] else 0 #1: ensemble are not sampled randomly, but their output DV are weighted accordinf to kernel
         if ensoption == 'ec':
             weighted= 'ens_class'
-            TIME['ens_class_cuts']=[int(k) for k in parameters.val['Options']['Ensemble Class Cuts',parameters.val['sOptions'][ss]].split('#')]
+            TIME['ens_class_cuts']=[int(k) for k in oopt['Ensemble Class Cuts'].split('#')]
         blocksolve= 1 if ensoption in ['bw','bm','ec'] else 0 #1: ensemble models are aggregated to a single block model
         TIME['obj_func'] = 'weighted' if ensoption in ['bw','ec'] else 'maxmin' #ensemble model objective function for block model                                     
+        
         #Other relevant parameters
-        TIME['crop_choice']=parameters.val['Options']['Crop choice',parameters.val['sOptions'][ss]] #crop choice option for main model
-        TIME['YWR']=parameters.val['Options']['Yield water response',parameters.val['sOptions'][ss]] #yield water response option for main model
-        if TIME['YWR'] != 'nonlinear':
-            parameters.val['Options']['Crop choice',parameters.val['sOptions'][ss]]='fixed' #crop choice is fixed for main and monthly model        
         if 'wRunOff' in parameters.scen.keys(): #scenarios on runoff exist
             TIME['climscen'] = parameters.val[parameters.scen['wRunOff']][ss] #climate scenario for forecast
         else:
             TIME['climscen'] = False
         TIME['ss']=ss #scenario 
         TIME['solver']=solver #solver
-        #Define if fraework considers stationarity of hydrology
+        
+        #Define if framework considers stationarity of hydrology
         TIME['stationary']=1 #default is stationary hydrology
-        stationary=parameters.val['Options']['Stationary',parameters.val['sOptions'][ss]]
+        stationary=oopt['Stationary'] if 'Stationary' in oopt.keys() else 1
         if stationary != 1:
             TIME['stationary']=0 #non-stationary hydrology
             TIME['climate_horizon']=int(stationary.split('#')[0]) #Number of past years used to compute average conditions
             TIME['update_shadow']=int(stationary.split('#')[1]) #Interval at which reservoir storage value is re-evaluated
-    
-    #Define model
-    HOM = HydroeconomicOptimization(parameters,scenario=ss) #main model 
-    TIME['year']=-1 #initialize value 
-    TIME['y0']=min([y for y in HOM.model.nyear]) #first simulated year
-    TIME['t0']=min([t for t in HOM.model.ntime]) #first simulated time step
-    TIME['tfinal']=HOM.model.Options['tfin'] #final time step of Planning Horizon
-    
-    #Get water shadow price for reservoir hedging
-    target_option=str(parameters.val['Options']['Reservoir Target',parameters.val['sOptions'][ss]])
-    TIME['storage_value']=0 #initialize value      
+        
+        #Get water shadow price for reservoir hedging
+        target_option=str(oopt['Reservoir Target']) if 'Reservoir Target' in oopt.keys() else 0
+        TIME['storage_value']=0 #initialize 
+        #Frequency of decision solving (needs to be lower or equal to perfect forecast)
+        TIME['frequency']=oopt['Frequency'] if 'Frequency' in oopt.keys() else 1
+        
+        #Initialize time parameters
+        TIME['year']=-1 #initialize value 
+        TIME['y0']=min([y for y in HOM.model.nyear]) #first simulated year
+        TIME['t0']=min([t for t in HOM.model.ntime]) #first simulated time step
+        TIME['tfinal']=oopt['tfin'] #final time step of Planning Horizon
         
     # --- START OF MPC FRAMEWORK --- #
     if MPC != 0:       
     # ---- Iterate over time steps ----
         variables=[] #initiate variables
-        for t in range(HOM.model.Options['tini'],HOM.model.Options['tfin']-HOM.model.Options['Buffer']):
-            #print(t)
+        for t in range(oopt['tini'],oopt['tfin']-oopt['Buffer'],TIME['frequency']):
+            print(t)
             TIME['t']=t                    
             if HOM.model.t_year[t] != TIME['year']: #New year                      
                 TIME['year']=HOM.model.t_year[t]
                 TIME['tini']=t #start of prediction horizon
-                TIME['tfin']=min(t+TIME['prediction_horizon']*12-1,HOM.model.Options['tfin']) #end of prediction horizon (max end of planning period)
+                TIME['tfin']=min(t+TIME['prediction_horizon']*12-1,oopt['tfin']) #end of prediction horizon (max end of planning period)
                 TIME['flen']=TIME['prediction_horizon']*12-1 #length of forecast
                 print(ss,TIME['year'])
                 #Reservoir hedging rule - based on perfect foresight shadowprice
                 if 'shadow' in target_option and (TIME['storage_value']==0 or (TIME['stationary']==0 and (TIME['year']-TIME['y0'])%TIME['update_shadow']==0)):
                     TIME['storage_value']=storage_shadow_value(ss,parameters,solver,TIME)
-                    print(ss,TIME['storage_value'])                                                 
+                    print(ss,TIME['storage_value'])       
                 #Generate forecasts 
-                forecast = knn_bootstrap(parameters,TIME,flen=TIME['flen'],nes=nEM,weighted=weighted)                
+                forecast = knn_bootstrap(parameters,TIME,flen=TIME['flen'],nes=nEM,weighted=weighted)
                 #Get previous storage levels and generic capacity investments    
                 rstorage = {res:HOM.model.WwRSTORAGE[t-1,res].value for res in HOM.model.nres} if TIME['year'] != TIME['y0'] else {}
                 gencap   = {(pt,pm):sum(HOM.model.EeGENCAP[ky,pt,pm].value for ky in HOM.model.nyear 
@@ -677,7 +687,8 @@ def SolveScenario(ss,parameters_in,solver,paths):
             weights = 0 if weighted == 0 else forecast['Kernel'] #if activated are used to weight the DV from ensemble models (rmq won't apply to merged ensemble model)
             mavdecisions=average_vars(mdecisions,weights=weights) #calculate average of DV from ensemble models
             variables.update(mavdecisions) #update save variables with last monthly run
-            load_vars(HOM.model,mavdecisions,time=[TIME['t']],fixed=1,onlyvar=['WwRSTORAGE','WwSUPPLY','AwSUPPLY']) #fix water DV in main model
+            load_vars(HOM.model,mavdecisions,time=range(TIME['t'],TIME['t']+TIME['frequency']),
+                      fixed=1,onlyvar=['WwRSTORAGE','WwSUPPLY','AwSUPPLY']) #fix water DV in main model
     # --- END OF MPC FRAMEWORK --- #    
     #%%Solve main model
     if solver.name == 'ipopt': #relax strict bounds use in the MPC framework 
@@ -696,7 +707,7 @@ def SolveScenario(ss,parameters_in,solver,paths):
             pass
     
     #Resolve for investment
-    if HOM.model.Options['Investment module'] == 1: #Fix selected investment to switch to fully linear model and get dual values       
+    if oopt['Investment module'] == 1: #Fix selected investment to switch to fully linear model and get dual values       
         for ip in HOM.model.ninvphase:
             for inv in HOM.model.ninvest:   
                 HOM.model.IbINVEST[ip,inv].fixed = True

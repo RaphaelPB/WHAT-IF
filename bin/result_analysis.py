@@ -56,6 +56,71 @@ class ResultAnalysis():
         #oo['scenario']=scenario
         expfile = expfolder + os.sep + scenario + '_DV.txt' 
         pickle.dump(All_DV,open(expfile,"wb"))
+    #%% indicators for IFPRI project
+    def export_ifpri_indicators(self,md,expfolder,scenario='WHATIF_main'):
+        #correct distored prices
+        ObjCoef=[1,1,1]
+        if md.Options['Objective_coef']==md.Options['Objective_coef']:
+            ObjCoef=[float(k) for k in md.Options['Objective_coef'].split('#')]
+            
+        IDX={}
+        #Energy indicators       
+        IDX['Hydropower_prod_GWh']={
+                (md.t_year[t],t,md.hp_country[hp],hp):sum(md.EeHPPROD[t,pld,hp].value*md.se.value for pld in md.npload) 
+                                for t in md.ntime for hp in md.nhpp}
+        IDX['Hydropower_val_Md']={
+                (md.t_year[t],t,md.hp_country[hp],hp):sum(-md.EeHPPROD[t,pld,hp].value
+                                                          *md.dual[md.engy_balance[t,pld,md.hp_pmarket[hp]]] 
+                                                          *1/ObjCoef[1]*1/md.iDisFact[md.t_year[t]]
+                                                          for pld in md.npload) 
+                                for t in md.ntime for hp in md.nhpp}
+        IDX['Power_price_dpkWh']={
+                (md.t_year[t],t,md.pmarket_country[pm]):sum(-1/md.se.value*md.dual[md.engy_balance[t,pld,pm]]*md.eLoadDem[pld] for pld in md.npload)
+                                                        *1/ObjCoef[1]*1/md.iDisFact[md.t_year[t]]
+                                for t in md.ntime for pm in md.npmarket}
+        IDX['Power_newprod_GWh']={
+                (md.t_year[t],t,md.pmarket_country[pm],pt):sum(md.EeGENPROD[t,pld,pt,pm].value*md.se.value for pld in md.npload)
+                                for t in md.ntime for pm in md.npmarket for pt in md.nptech}
+        #Agriculture Indicators
+        agtype={'R':0,'I':1} #R is rainfed, I is irrigated
+        IDX['Crop_area_kha']={
+                (y,md.cmarket_country[cm],cr,at):sum(md.xCULAREA[y,fz,cul]() for fz in md.nfzone for cul in md.nculture 
+                                                     if md.fzone_cmarket[fz]==cm and md.culture_crop[cul]==cr and md.aIrrigation[md.fzone_type[fz]]==agtype[at])
+                                for y in md.nyear for cm in md.ncmarket for cr in md.ncrop for at in agtype.keys()}
+        IDX['Crop_prod_kt']={
+                (y,md.cmarket_country[cm],cr,at):sum(md.AcPROD[y,fz,cr].value for fz in md.nfzone if md.fzone_cmarket[fz]==cm and md.aIrrigation[md.fzone_type[fz]]==agtype[at]) 
+                                for y in md.nyear for cm in md.ncmarket for cr in md.ncrop for at in agtype.keys()}
+        IDX['Crop_val_Md']={
+                (y,md.cmarket_country[cm],cr,at):sum(md.AcPROD[y,fz,cr].value for fz in md.nfzone if md.fzone_cmarket[fz]==cm and md.aIrrigation[md.fzone_type[fz]]==agtype[at])
+                                              *-md.dual[md.agr_cropbalance[y,cm,cr]]
+                                              *1/ObjCoef[2]*1/md.iDisFact[y]
+                                for y in md.nyear for cm in md.ncmarket for cr in md.ncrop for at in agtype.keys()}
+        IDX['Crop_price_dpt']={
+                (y,md.cmarket_country[cm],cr):-1/md.kt_to_Mt*md.dual[md.agr_cropbalance[y,cm,cr]]
+                                               *1/ObjCoef[2]*1/md.iDisFact[y]
+                                for y in md.nyear for cm in md.ncmarket for cr in md.ncrop}
+        IDX['Cul_Dem_mm']={
+                (y,md.cmarket_country[cm],cul):sum(md.xCulDem[y,fz,cul,yp]() for fz in md.nfzone for yp in md.nyphase if md.fzone_cmarket[fz]==cm)
+                                               /max(1,len([fz for fz in md.nfzone if md.fzone_cmarket[fz]==cm]))
+                                for y in md.nyear for cm in md.ncmarket for cul in md.nculture}
+        IDX['Cul_Rain_mm']={
+                (y,md.cmarket_country[cm],cul):sum(md.xCulRain[y,fz,cul,yp]() for fz in md.nfzone for yp in md.nyphase if md.fzone_cmarket[fz]==cm)
+                                               /max(1,len([fz for fz in md.nfzone if md.fzone_cmarket[fz]==cm]))
+                                for y in md.nyear for cm in md.ncmarket for cul in md.nculture}
+        IDX['Cul_Cons_Mm3']={
+                (md.t_year[t],t,co,cr):
+                    sum(md.AwSUPPLY[t,fz,cul].value*(1+md.aIrrgLoss[fz]/(1-md.aIrrgLoss[fz])-md.aCulRturn[md.fzone_type[fz],cul]) 
+                        for fz in md.nifzone for cul in md.nculture 
+                        if md.fzone_country[fz]==co and md.culture_crop[cul]==cr)
+                            for t in md.ntime for co in md.ncountry for cr in md.ncrop}
+        
+        #Water indicator
+        IDX['Runoff_Mm3']={(md.t_year[t],t):sum(md.wRunOff[t,c].value for c in md.ncatch) for t in md.ntime}
+        IDX['ET_mm']={(md.t_year[t],t):sum(md.wET0[t,c].value for c in md.ncatch)/len(md.ncatch) for t in md.ntime}
+        IDX['P_mm']={(md.t_year[t],t):sum(md.wRainFall[t,c].value for c in md.ncatch)/len(md.ncatch) for t in md.ntime}
+                
+        expfile = expfolder + os.sep + scenario + '_ifpri_IDX.txt' 
+        pickle.dump(IDX,open(expfile,"wb"))
     #%% Read only Selected result for scenario analysis (WHATIF_scenario.py)
     def selectedresults(self,md,parameters,scenario='WHATIF_main'):
         #output dictionary
@@ -108,6 +173,9 @@ class ResultAnalysis():
             oo['InvestmentDecision_inv'] = {inv:sum(md.IbINVEST[ip,inv].value for ip in md.ninvphase) for inv in md.ninvest}
             oo['InvestmentPhase_inv']    = {inv:[ip for ip in md.ninvphase 
                                             if md.IbINVEST[ip,inv].value>tol][0] if oo['InvestmentDecision_inv'][inv]>tol else 'no' for inv in md.ninvest}
+        InvestBalance_co = {co: -sum(md.xInvCAPEX[y]() + md.xInvFixOPEX[y]() 
+                                     for y in md.nyear)
+                                /leni(md.ncountry)/leni(md.nyear) for co in md.ncountry}
         
         ##ECONOMIC RESULTS##
         _nuser = lambda co : [ku for ku in md.nuser if md.user_country[ku]==co]
@@ -135,21 +203,23 @@ class ResultAnalysis():
                                        for fz in md.nfzone}
         #Consummer and Producer surplus
         oo['AgricultureConsSurplus_co'] = {
-                co:+sum(md.xCmBen[y,cm]() for y in md.nyear for cm in md.ncmarket if md.cmarket_country[cm]==co)/leni(md.nyear)                    
+                co:+ sum(md.xCmBen[y,cm]() for y in md.nyear for cm in md.ncmarket if md.cmarket_country[cm]==co)/leni(md.nyear)                    
                    +(sum(-md.dual[md.agr_cropbalance[y,cm,cr]]*md.kt_to_Mt*md.AcSUPPLY[y,cm,cr,cds].value 
-                         for cr in md.ncrop for cds in md.ncdstep for y in md.nyear for cm in md.ncmarket if md.cmarket_country[cm]==co)
+                         for cr in md.ncrop for cds in md.ncdstep for y in md.nyear for cm in md.ncmarket if md.cmarket_country[cm]==co)/leni(md.nyear)
                      if md.Options['Crop demand elasticity']!='nonlinear' else
                      sum(-md.dual[md.agr_cropbalance[y,cm,cr]]*md.kt_to_Mt*md.AcSUPPLY[y,cm,cr].value
-                         for cr in md.ncrop for y in md.nyear for cm in md.ncmarket if md.cmarket_country[cm]==co))
+                         for cr in md.ncrop for y in md.nyear for cm in md.ncmarket if md.cmarket_country[cm]==co))/leni(md.nyear)
                 for co in md.ncountry}
         oo['AgricultureProdSurplus_co'] = {
                 co:+ sum(sum(md.kt_to_Mt*md.AcPROD[y,fz,cr].value for fz in md.nfzone if md.fzone_cmarket[fz]==cm) 
                          * -1/md.kt_to_Mt*md.dual[md.agr_cropbalance[y,cm,cr]] 
-                       for y in md.nyear for cm in md.ncmarket for cr in md.ncrop for cds in md.ncdstep if md.cmarket_country[cm]==co)/leni(md.nyear) 
-                   - sum(md.kha_to_Mha*md.xCULAREA[y,fz,cul]() * md.aCulCost[md.fzone_type[fz],cul] 
-                         for y in md.nyear for fz in md.nfzone for cul in md.nculture if md.fzone_country[fz]==co)/leni(md.nyear) 
-                   - sum(md.AwSUPPLY[t,fz,cul].value/(1-md.aIrrgLoss[fz]) * md.aIrrgCost[fz]  
-                         for t in md.ntime for fz in md.nifzone for cul in md.nculture if md.fzone_country[fz]==co)/leni(md.nyear) 
+                       for y in md.nyear for cm in md.ncmarket for cr in md.ncrop if md.cmarket_country[cm]==co)/leni(md.nyear) 
+                   - sum(+ md.xFzCulCost[y,fz]()
+                         for y in md.nyear for fz in md.nfzone if md.fzone_country[fz]==co)/leni(md.nyear)
+                   - sum(+ md.xFzIrrCost[y,fz]() + md.xFzPumpCost[y,fz]() 
+                         for y in md.nyear for fz in md.nifzone if md.fzone_country[fz]==co)/leni(md.nyear)
+                   - sum(+ md.xCmMarkMarg[y,cm]()+ md.xCmTransCost[y,cm]()+ md.xCmProdCost[y,cm]()
+                         for y in md.nyear for cm in md.ncmarket if md.cmarket_country[cm]==co)/leni(md.nyear)
                 for co in md.ncountry}    
     #Balances
         CropBalance_co = {co:+sum(md.xFzBen[y,fz]() - md.xFzCulCost[y,fz]() for y in md.nyear for fz in _nfzone(co))/leni(md.nyear)
@@ -199,14 +269,17 @@ class ResultAnalysis():
         EconomicBalance     = (+sum(WaterBalance_co[co] for co in md.ncountry) 
                                +sum(CropBalance_co[co] for co in md.ncountry) 
                                +sum(EngyBalance_co[co] for co in md.ncountry)
-                               +sum(ActivityBlance_co[co] for co in md.ncountry))
+                               +sum(ActivityBlance_co[co] for co in md.ncountry)
+                               +sum(InvestBalance_co[co] for co in md.ncountry))
+        
         oo['EconomicBalance_co'] = {co: WaterBalance_co[co] + CropBalance_co[co] + EngyBalance_co[co] + ActivityBlance_co[co] for co in md.ncountry}
         oo['EconomicBalance']    = {
             'Total':EconomicBalance,
             'Water':sum(WaterBalance_co[co] for co in md.ncountry),
             'Energy':sum(EngyBalance_co[co] for co in md.ncountry),
             'Agriculture':sum(CropBalance_co[co] for co in md.ncountry),
-            'Activities':sum(ActivityBlance_co[co] for co in md.ncountry)}
+            'Activities':sum(ActivityBlance_co[co] for co in md.ncountry),
+            'Investments':sum(InvestBalance_co[co] for co in md.ncountry)}
         oo['WaterEconomicBalance_co'] = WaterBalance_co
         oo['EnergyEconomicBalance_co'] = EngyBalance_co
         oo['AgricultureEconomicBalance_co'] = CropBalance_co
@@ -301,7 +374,8 @@ class ResultAnalysis():
             ' Energy Opp CO2 Cost [M$/year]':   sum(OppCO2Cost_co[co] for co in md.ncountry),                                
             ' Energy Hpp OetM Cost [M$/year]':  sum(HpOMCost_co[co] for co in md.ncountry),
             ' Energy Trans Cost [M$/year]':     sum(EnergyTransCost_co[co] for co in md.ncountry),
-            ' jActivity Prod Cost [M$/year]':    sum(ActivityBlance_co[co] for co in md.ncountry)
+            ' jActivity Prod Cost [M$/year]':   sum(ActivityBlance_co[co] for co in md.ncountry),
+            ' Investments NODISCOUNT [M$/year]':sum(-InvestBalance_co[co] for co in md.ncountry)
             } 
         oo['Options']={key:md.Options[key] for key in md.Options}
         return oo 
@@ -319,9 +393,10 @@ class ResultAnalysis():
 #                return parameters.val[ParamName]
 #MAIN
     # Optimization Parameters
+        solvetime=solverstatus.solver.Time if 'Time' in dir(solverstatus.solver) else ''
         oo['MainTable']={'Time and date of run': time.strftime("%c"),
                         'Number of years': len(md.nyear),
-                        'Run time [s]': solverstatus.solver.Time,
+                        'Run time [s]': solvetime,
                         'Scenario': scenario}                    
 
 #%%SHADOWPRICES
@@ -346,6 +421,10 @@ class ResultAnalysis():
         oo['PpCapShadow_pp'] = {pp:-sum(md.dual[md.engy_oppcapacity[t,pld,pp]] for t in md.ntime for pld in md.npload)/(leni(md.ntime)*leni(md.npload)) for pp in md.nopp}                       
          #Land capacity shadow value
         oo['AvLandShadow_fz']    = {fz:-sum(1/md.kha_to_Mha*md.dual[md.agr_maxland[y,fz]] for y in md.nyear) /(leni(md.nyear)) if 'agr_maxland' in CONSTRAINTLIST else 0 for fz in md.nfzone}
+        oo['AvLandShadow_fz_cul']= {fz:{cul:-sum(1/md.kha_to_Mha*md.dual[md.agr_maxcularea[y,fz,cul]] for y in md.nyear) /(leni(md.nyear)) 
+                                            if 'agr_maxcularea' in CONSTRAINTLIST else 0
+                                        for cul in md.nculture} 
+                                    for fz in md.nfzone}
         #Crop price is determined by cropbalance - of farm value if crop market option is off
         if md.Options['Crop market'] == 1:
             oo['CropPrice_cr_y'] = {cr:{y: sum(-1/md.kt_to_Mt*md.dual[md.agr_cropbalance[y,cm,cr]] for cm in md.ncmarket)/leni(md.ncmarket) for y in md.nyear} for cr in md.ncrop}
@@ -400,39 +479,63 @@ class ResultAnalysis():
                 'jActivity Water prod [Mm3]':   {t: {c: sum(md.JjPROD[t,j].value*md.jWatProd[j] for j in md.njactivity if md.j_catch[j]==c) for c in md.ncatch} for t in md.ntime},
                                  }
         oo['WaterBalance_t_c']['Reservoir evaporation [Mm3]']={t: {c: sum(md.xResEvap[t,res]() for res in md.nres if md.res_catch[res]==c) for c in md.ncatch} for t in md.ntime}             
-        oo['WaterBalance_t_c'][' Balance = 0 [Mm3]']= {t: {c: + oo['WaterBalance_t_c']['RunOff [Mm3]'][t][c]
-                                                             + oo['WaterBalance_t_c']['Groundwater recharge [Mm3]'][t][c]
-                                                             + oo['WaterBalance_t_c']['User return flow [Mm3]'][t][c]
-                                                             + oo['WaterBalance_t_c']['Agriculture return flow [Mm3]'][t][c]
-                                                             + oo['WaterBalance_t_c']['Transfer inflow [Mm3]'][t][c]
-                                                             + oo['WaterBalance_t_c']['Upstream inflow [Mm3]'][t][c]
-                                                             + (oo['WaterBalance_t_c']['Reservoir storage [Mm3]'][md.t_prev[t]][c] if md.Options['Initial time step'] == 0 or t != md.Options['tini'] else sum(md.wStorIni[res].value for res in md.nres if md.res_catch[res]==c))
-                                                             + (oo['WaterBalance_t_c']['Groundwater storage [Mm3]'][md.t_prev[t]][c] if md.Options['Initial time step'] == 0 or t != md.Options['tini'] else sum(md.wGwIni[aq].value for aq in md.naquifer if md.aqui_catch[aq]==c))
-                                                             + oo['WaterBalance_t_c']['jActivity Water prod [Mm3]'][t][c]
-                                                             - oo['WaterBalance_t_c']['jActivity Water cons [Mm3]'][t][c]
-                                                             - oo['WaterBalance_t_c']['User allocation [Mm3]'][t][c]
-                                                             - oo['WaterBalance_t_c']['User water loss [Mm3]'][t][c]
-                                                             - oo['WaterBalance_t_c']['Agriculture irrigation [Mm3]'][t][c]
-                                                             - oo['WaterBalance_t_c']['Agriculture irrig. loss [Mm3]'][t][c]
-                                                             - oo['WaterBalance_t_c']['Agriculture groundwater [Mm3]'][t][c]
-                                                             - oo['WaterBalance_t_c']['Transfer outflow [Mm3]'][t][c]
-                                                             - oo['WaterBalance_t_c']['Transfer loss [Mm3]'][t][c]
-                                                             - oo['WaterBalance_t_c']['Reservoir storage [Mm3]'][t][c]
-                                                             - oo['WaterBalance_t_c']['Reservoir evaporation [Mm3]'][t][c]
-                                                             - oo['WaterBalance_t_c']['Groundwater storage [Mm3]'][t][c]
-                                                             - oo['WaterBalance_t_c']['River ET [Mm3]'][t][c]
-                                                             - oo['WaterBalance_t_c']['Outlet flow [Mm3]'][t][c]
-                                                             for c in md.ncatch} for t in md.ntime}
+        oo['WaterBalance_t_c'][' Balance = 0 [Mm3]']= {t: {c: 
+            + oo['WaterBalance_t_c']['RunOff [Mm3]'][t][c]
+            + oo['WaterBalance_t_c']['Groundwater recharge [Mm3]'][t][c]
+            + oo['WaterBalance_t_c']['User return flow [Mm3]'][t][c]
+            + oo['WaterBalance_t_c']['Agriculture return flow [Mm3]'][t][c]
+            + oo['WaterBalance_t_c']['Transfer inflow [Mm3]'][t][c]
+            + oo['WaterBalance_t_c']['Upstream inflow [Mm3]'][t][c]
+            + (oo['WaterBalance_t_c']['Reservoir storage [Mm3]'][md.t_prev[t]][c] if md.Options['Initial time step'] == 0 or t != md.Options['tini'] else sum(md.wStorIni[res].value for res in md.nres if md.res_catch[res]==c))
+            + (oo['WaterBalance_t_c']['Groundwater storage [Mm3]'][md.t_prev[t]][c] if md.Options['Initial time step'] == 0 or t != md.Options['tini'] else sum(md.wGwIni[aq].value for aq in md.naquifer if md.aqui_catch[aq]==c))
+            + oo['WaterBalance_t_c']['jActivity Water prod [Mm3]'][t][c]
+            - oo['WaterBalance_t_c']['jActivity Water cons [Mm3]'][t][c]
+            - oo['WaterBalance_t_c']['User allocation [Mm3]'][t][c]
+            - oo['WaterBalance_t_c']['User water loss [Mm3]'][t][c]
+            - oo['WaterBalance_t_c']['Agriculture irrigation [Mm3]'][t][c]
+            - oo['WaterBalance_t_c']['Agriculture irrig. loss [Mm3]'][t][c]
+            - oo['WaterBalance_t_c']['Agriculture groundwater [Mm3]'][t][c]
+            - oo['WaterBalance_t_c']['Transfer outflow [Mm3]'][t][c]
+            - oo['WaterBalance_t_c']['Transfer loss [Mm3]'][t][c]
+            - oo['WaterBalance_t_c']['Reservoir storage [Mm3]'][t][c]
+            - oo['WaterBalance_t_c']['Reservoir evaporation [Mm3]'][t][c]
+            - oo['WaterBalance_t_c']['Groundwater storage [Mm3]'][t][c]
+            - oo['WaterBalance_t_c']['River ET [Mm3]'][t][c]
+            - oo['WaterBalance_t_c']['Outlet flow [Mm3]'][t][c]
+                                                            for c in md.ncatch} for t in md.ntime}
         #WATER BALANCES
-        oo['WaterBalance_y'] = {keys:{y:sum(oo['WaterBalance_t_c'][keys][t][ca] for t in md.ntime for ca in md.ncatch if md.t_year[t]==y) for y in md.nyear} for keys in oo['WaterBalance_t_c'].keys()}
-        oo['WaterBalance_ca'] = {keys:{ca:sum(oo['WaterBalance_t_c'][keys][t][ca] for t in md.ntime)/leni(md.nyear) for ca in md.ncatch} for keys in oo['WaterBalance_t_c'].keys()}
-        oo['WaterBalance_ca']['Initial storage [Mm3]'] = {c:sum(md.wStorIni[res].value for res in md.nres if md.res_catch[res]==c) + sum(md.wGwIni[aq] for aq in md.naquifer if md.aqui_catch[aq]==c) for c in md.ncatch} if md.Options['Initial time step'] == 1 else {c:0 for c in md.ncatch}
-        oo['WaterBalance_ca']['End storage [Mm3]']     = {c:sum(md.sw.value*md.WwRSTORAGE[md.Options['tfin'],res].value for res in md.nres if md.res_catch[res]==c) + sum(md.WwGWSTORAGE[md.Options['tfin'],aq].value for aq in md.naquifer if md.aqui_catch[aq]==c) for c in md.ncatch} if md.Options['Initial time step'] == 1 else {c:0 for c in md.ncatch}
+        oo['WaterBalance_y'] = {keys:{y:sum(oo['WaterBalance_t_c'][keys][t][ca] 
+                                            for t in md.ntime for ca in md.ncatch 
+                                            if md.t_year[t]==y) 
+                                      for y in md.nyear} 
+                                for keys in oo['WaterBalance_t_c'].keys()}
+        oo['WaterBalance_y']['Outlet flow [Mm3]'] = {y:sum(oo['WaterBalance_t_c']['Outlet flow [Mm3]'][t][c] 
+                                                           for c in md.ncatch for t in md.ntime 
+                                                           if md.catch_ds[c]=='outlet' and md.t_year[t]==y) 
+                                                     for y in md.nyear}
+        oo['WaterBalance_ca'] = {keys:{ca:sum(oo['WaterBalance_t_c'][keys][t][ca] 
+                                              for t in md.ntime)/leni(md.nyear) 
+                                       for ca in md.ncatch} 
+                                 for keys in oo['WaterBalance_t_c'].keys()}
+        if md.Options['Initial time step'] == 1:
+            initialstorage = {c:+sum(md.wStorIni[res].value for res in md.nres if md.res_catch[res]==c) 
+                                +sum(md.wGwIni[aq] for aq in md.naquifer if md.aqui_catch[aq]==c) 
+                             for c in md.ncatch}
+            endstorage = {c:+sum(md.sw.value*md.WwRSTORAGE[md.Options['tfin'],res].value 
+                                 for res in md.nres if md.res_catch[res]==c) 
+                            +sum(md.WwGWSTORAGE[md.Options['tfin'],aq].value 
+                                 for aq in md.naquifer if md.aqui_catch[aq]==c) 
+                            for c in md.ncatch}            
+        else:
+            initialstorage = {c:0 for c in md.ncatch}
+            endstorage = {c:0 for c in md.ncatch}
+        oo['WaterBalance_ca']['Initial storage [Mm3]'] = initialstorage
+        oo['WaterBalance_ca']['End storage [Mm3]']     = endstorage
         oo['WaterBalance_co'] = {keys:{co:sum(oo['WaterBalance_ca'][keys][c] for c in md.ncatch if md.catch_country[c] == co) for co in md.ncountry} for keys in oo['WaterBalance_ca'].keys()}
         oo['WaterBalance']    = {keys:sum(oo['WaterBalance_ca'][keys][c] for c in md.ncatch) for keys in oo['WaterBalance_ca'].keys()}                          
         oo['WaterBalance_co']['Upstream inflow [Mm3]'] = {co:sum(oo['WaterBalance_ca']['Outlet flow [Mm3]'][kc] for kc in md.ncatch if (md.catch_ds[kc] != 'outlet' and md.catch_country[md.catch_ds[kc]]==co) and md.catch_country[kc] != co) for co in md.ncountry}
         oo['WaterBalance_co']['Outlet flow [Mm3]']     = {co:sum(oo['WaterBalance_ca']['Outlet flow [Mm3]'][kc] for kc in md.ncatch if (md.catch_ds[kc] == 'outlet' or  md.catch_country[md.catch_ds[kc]]!=co) and md.catch_country[kc] == co) for co in md.ncountry} 
-        oo['WaterBalance']['Outlet flow [Mm3]']     = oo['WaterBalance']['Outlet flow [Mm3]'] - oo['WaterBalance']['Upstream inflow [Mm3]']
+        oo['WaterBalance']['Outlet flow [Mm3]']     = sum(oo['WaterBalance_ca']['Outlet flow [Mm3]'][c] for c in md.ncatch if md.catch_ds[c]=='outlet')
         oo['WaterBalance']['Upstream inflow [Mm3]'] = 0
         
         #RESERVOIRS
@@ -618,11 +721,18 @@ class ResultAnalysis():
             oo['Yield_cul_ft']       = {cr:{co:sum(md.kt_to_Mt*md.AcPROD[y,fz,cr].value for y in md.nyear for fz in md.nfzone if md.fzone_country[fz]==co)/sum(md.kha_to_Mha*md.xCULAREA[y,fz,cul]() for y in md.nyear for fz in md.nfzone for cul in md.nculture if md.fzone_country[fz]==co and md.culture_crop[cul]==cr)
                                             if sum(md.xCULAREA[y,fz,cul]() for y in md.nyear for fz in md.nfzone for cul in md.nculture if md.fzone_country[fz]==co and md.culture_crop[cul]==cr) != 0  else 0 for co in md.ncountry} for cr in md.ncrop}
         else:    
-            oo['Yield_cul_ft']       = {cul:{ft:sum(md.AlCULAREA[y,fz,kfd,kypt].value*(1-sum(md.xkY[md.field_culture[kfd],kyps]()*(1-md.aYieldMat[kypt,kyps]) for kyps in md.nyphase)) for y in md.nyear for fz in md.nfzone for kypt in md.nypath for kfd in md.nfieldculture if md.field_culture[kfd]==cul and md.fzone_type[fz]==ft)
+            oo['Yield_cul_ft']       = {cul:{ft:sum(md.AlCULAREA[y,fz,kfd,kypt].value*(1-sum(md.xkY[md.fzone_type[fz],md.field_culture[kfd],kyps]()*(1-md.aYieldMat[kypt,kyps]) for kyps in md.nyphase)) for y in md.nyear for fz in md.nfzone for kypt in md.nypath for kfd in md.nfieldculture if md.field_culture[kfd]==cul and md.fzone_type[fz]==ft)
                                               /sum(md.xCULAREA[y,fz,cul]() for y in md.nyear for fz in md.nfzone if md.fzone_type[fz]==ft) 
                                                for ft in md.nftype if sum(md.xCULAREA[y,fz,cul]() for y in md.nyear for fz in md.nfzone if md.fzone_type[fz]==ft) != 0} 
                                                for cul in md.nculture}
-        
+        #WATER USE
+        oo['WaterCons_cul_m']        = {m:{cul:sum(md.AwSUPPLY[kt,kfz,cul].value*(1/(1-md.aIrrgLoss[kfz])-md.aCulRturn[md.fzone_type[kfz],cul]) 
+                                                   for kfz in md.nifzone for kt in md.ntime if md.t_month[kt]==m)/len(md.nyear) 
+                                             for cul in md.nculture } for m in md.nmonth}
+        oo['WaterDem_cul_fz']        = {fz:{cul:sum(+md.xCulDem[y,fz,cul,yps]()
+                                                    -md.xCulRain[y,fz,cul,yps]()
+                                                    for yps in md.nyphase for y in md.nyear)/leni(md.nyear) 
+                                            for cul in md.nculture} for fz in md.nfzone}
         #LAND USE
         if md.Options['Crop choice'] == 'fixed' or md.Options['Yield water response'] == 'nonlinear':
             oo['LandUse_fd_ft']      = {cul:{ft:sum(md.xCULAREA[y,fz,cul]() for y in md.nyear for fz in md.nfzone if md.fzone_type[fz]==ft)/leni(md.nyear) for ft in md.nftype} for cul in md.nculture}
@@ -815,7 +925,7 @@ class ResultAnalysis():
         'Crop cultivation costs [M$]': _to_dic('xFzCulCost',_nfzone),
         'Crop irrigation costs [M$]': _to_dic('xFzIrrCost',_nifzone),  
         'Crop groundwater costs [M$]': _to_dic('xFzPumpCost',_nifzone),
-        'Crop marketing costs [M$] ': _to_dic('xCmMarkMarg',_ncmarket),
+        'Crop marketing costs [M$]': _to_dic('xCmMarkMarg',_ncmarket),
         'Crop transport costs [M$]': _to_dic('xCmTransCost',_ncmarket),
         'Crop ext prod costs [M$]': _to_dic('xCmProdCost',_ncmarket),
         'Crop benefits [M$]': _to_dic('xFzBen',_nfzone) if md.Options['Crop market'] == 0 else _to_dic('xCmBen',_ncmarket),
@@ -846,9 +956,12 @@ class ResultAnalysis():
             oo['EconomicBalance_y_co']['Energy benefits [M$]']   = {y:{co: sum(md.se.value*md.EeHPPROD[t,pld,hp].value*(md.eHppVal[hp]-md.eHppCost[hp]) for t in md.ntime for pld in md.npload for hp in md.nhpp if md.hp_country[hp]==co and md.t_year[t]==y) for co in md.ncountry} for y in md.nyear}
         #Activities
         oo['EconomicBalance_y_co']['jActivity Blance [M$]'] = {y: {co: -sum(md.JjPROD[t,j].value*md.jProdCost[j] for j in md.njactivity for t in md.ntime 
-                                                                            if md.j_country[j]==co and md.t_year[t]==y)/leni(md.nyear) 
+                                                                            if md.j_country[j]==co and md.t_year[t]==y)
                                                                    for co in md.ncountry} for y in md.nyear}        
-                       
+        oo['EconomicBalance_y_co']['Investment CAPEX [M$]'] = {y: {co: md.xInvCAPEX[y]()/leni(md.ncountry) 
+                                                                    for co in md.ncountry} for y in md.nyear}
+        oo['EconomicBalance_y_co']['Investment fix OPEX [M$]'] = {y: {co: md.xInvFixOPEX[y]()/leni(md.ncountry) 
+                                                                    for co in md.ncountry} for y in md.nyear}                   
         #Balance
         oo['EconomicBalance_y_co'][' Balance [M$]'] = {y:{co:
             + oo['EconomicBalance_y_co']['User benefits [M$]'][y][co]
@@ -857,23 +970,26 @@ class ResultAnalysis():
             - oo['EconomicBalance_y_co']['Crop cultivation costs [M$]'][y][co]
             - oo['EconomicBalance_y_co']['Crop irrigation costs [M$]'][y][co]
             - oo['EconomicBalance_y_co']['Crop groundwater costs [M$]'][y][co]       
-            - oo['EconomicBalance_y_co']['Crop transport costs [M$]'][y][co]       
+            - oo['EconomicBalance_y_co']['Crop transport costs [M$]'][y][co]
+            - oo['EconomicBalance_y_co']['Crop marketing costs [M$]'][y][co]
             - oo['EconomicBalance_y_co']['Crop import costs [M$]'][y][co]            
             + oo['EconomicBalance_y_co']['Crop export benefits [M$]'][y][co]         
             - oo['EconomicBalance_y_co']['Crop ext prod costs [M$]'][y][co]
             + oo['EconomicBalance_y_co']['Energy benefits [M$]'][y][co]
             - oo['EconomicBalance_y_co']['Energy import costs [M$]'][y][co]         
-            + oo['EconomicBalance_y_co']['Energy export benefits [M$]'][y][co]       
-            - oo['EconomicBalance_y_co']['Energy trans costs [M$]'][y][co]           
-            - oo['EconomicBalance_y_co']['Energy hydro O&M costs [M$]'][y][co]    
-            - oo['EconomicBalance_y_co']['Energy curtailment costs [M$]'][y][co]    
-            - oo['EconomicBalance_y_co']['Energy power O&M costs [M$]'][y][co]      
-            - oo['EconomicBalance_y_co']['Energy fuel costs [M$]'][y][co]            
+            + oo['EconomicBalance_y_co']['Energy export benefits [M$]'][y][co]
+            - oo['EconomicBalance_y_co']['Energy trans costs [M$]'][y][co]     
+            - oo['EconomicBalance_y_co']['Energy hydro O&M costs [M$]'][y][co]  
+            #- oo['EconomicBalance_y_co']['Energy curtailment costs [M$]'][y][co]    #it would be double counting to count curtailment costs
+            - oo['EconomicBalance_y_co']['Energy power O&M costs [M$]'][y][co]     
+            - oo['EconomicBalance_y_co']['Energy fuel costs [M$]'][y][co]      
             - oo['EconomicBalance_y_co']['Energy Gen power O&M costs [M$]'][y][co]   
-            - oo['EconomicBalance_y_co']['Energy Gen cap costs [M$]'][y][co]       
-            - oo['EconomicBalance_y_co']['Energy Gen fuel costs [M$]'][y][co]      
+            - oo['EconomicBalance_y_co']['Energy Gen cap costs [M$]'][y][co]    
+            - oo['EconomicBalance_y_co']['Energy Gen fuel costs [M$]'][y][co]    
             - oo['EconomicBalance_y_co']['Energy CO2 costs [M$]'][y][co]
-            + oo['EconomicBalance_y_co']['jActivity Blance [M$]'][y][co] 
+            + oo['EconomicBalance_y_co']['jActivity Blance [M$]'][y][co]
+            - oo['EconomicBalance_y_co']['Investment CAPEX [M$]'][y][co]
+            - oo['EconomicBalance_y_co']['Investment fix OPEX [M$]'][y][co]            
                                                             for co in md.ncountry} for y in md.nyear}
         #Balance at other levels
         oo['EconomicBalance']      = {keys:     sum(oo['EconomicBalance_y_co'][keys][y][co] for y in md.nyear for co in md.ncountry)/leni(md.nyear) for keys in oo['EconomicBalance_y_co'].keys()}
@@ -882,7 +998,7 @@ class ResultAnalysis():
 
         oo['EconomicBalance_ca']={'User benefits [M$]':           {c:sum(md.WwSUPPLY[t,u].value*md.wUserVal[u] for t in md.ntime for u in md.nuser if md.user_catch[u]==c)/leni(md.nyear) for c in md.ncatch},
                                  'Water supply costs [M$]':      {c:sum(md.WwSUPPLY[t,u].value/(1-md.wUserLoss[u]) * md.wSupCost[u] for t in md.ntime for u in md.nuser if md.user_catch[u]==c)/leni(md.nyear) for c in md.ncatch},                                  
-                                 'Crop cultivation costs [M$]':  {c:sum(md.xCULAREA[y,fz,cul]() * md.aCulCost[md.fzone_type[fz],cul] for y in md.nyear for fz in md.nfzone for cul in md.nculture if md.fzone_catch[fz]==c)/leni(md.nyear)     for c in md.ncatch}, 
+                                 'Crop cultivation costs [M$]':  {c:sum(md.kha_to_Mha*md.xCULAREA[y,fz,cul]() * md.aCulCost[md.fzone_type[fz],cul] for y in md.nyear for fz in md.nfzone for cul in md.nculture if md.fzone_catch[fz]==c)/leni(md.nyear)     for c in md.ncatch}, 
                                  'Crop irrigation costs [M$]':   {c:sum(md.AwSUPPLY[t,fz,cul].value * md.aIrrgCost[fz] for t in md.ntime for fz in md.nifzone for cul in md.nculture if md.fzone_catch[fz]==c)/leni(md.nyear)      for c in md.ncatch}}
         if md.Options['Crop market'] == 0:
             oo['EconomicBalance_ca']['Crop benefits [M$]']           = {c:sum(md.kt_to_Mt*md.AcPROD[y,fz,cr].value * md.aFarmVal[y,md.fzone_country[fz],cr] for y in md.nyear for fz in md.nfzone for cr in md.ncrop if md.fzone_catch[fz]==c)/leni(md.nyear) for c in md.ncatch}
@@ -907,6 +1023,8 @@ class ResultAnalysis():
             print(oo['EconomicBalance']['Crop export benefits [M$]'])
             print('Crop transport cost [M$/y]')
             print(oo['EconomicBalance']['Crop transport costs [M$]'])
+            print('Crop marketing cost [M$/y]')
+            print(oo['EconomicBalance']['Crop marketing costs [M$]'])
             print('Energy benefit [M$/y]')
             print(oo['EconomicBalance']['Energy benefits [M$]'])            
             print('Energy curtailment cost [M$/y]')
@@ -1018,9 +1136,15 @@ class ResultAnalysis():
             
 #%%INVESTMENT PLANNING            
         if md.Options['Investment module'] in [1,'continuous']:    
-            oo['InvestmentPlan_inv_ip']  = {inv:{ip:md.IbINVEST[ip,inv].value for ip in md.ninvphase} for inv in md.ninvest}
-            oo['Investments_ip']         = {ip:sum(md.IbINVEST[ip,inv].value*md.iCAPEX[inv] for inv in md.ninvest) for ip in md.ninvphase}
-            oo['InvestmentCap_inv_y']    = {inv: {y:sum(md.IbINVEST[ip,inv].value*md.iInvCap[inv] for ip in md.ninvphase if md.t_year[md.invphase_t[ip]]==y) for y in md.nyear} for inv in md.ninvest}
+            oo['InvestmentPlan_inv_ip']  = {inv:{ip:md.IbINVEST[ip,inv].value for ip in md.ninvphase} 
+                                            for inv in md.ninvest}
+            oo['Investments_ip']         = {ip:sum(md.IbINVEST[ip,inv].value
+                                                   *md.iCAPEX[md.t_year[md.invphase_t[ip]],inv] 
+                                                   for inv in md.ninvest) for ip in md.ninvphase}
+            oo['InvestmentCap_inv_y']    = {inv: {y:sum(md.IbINVEST[ip,inv].value*md.iInvCap[inv] 
+                                                        for ip in md.ninvphase 
+                                                        if md.t_year[md.invphase_t[ip]]==y) 
+                                                  for y in md.nyear} for inv in md.ninvest}
             #oo['Investments_co   
 #%%RETURN
         return oo
@@ -1133,7 +1257,7 @@ class ResultAnalysis():
                 scol = scol + pdata.shape[1] + distance
                 rowjump=max(rowjump,len(pdata))
 #%%
-    def export_to_excel(self,oo,exppath,VALIDATION=0,NEWSHEET=0):
+    def export_to_excel(self,oo,exppath,VALIDATION=0,NEWSHEET=1):
         ## oo = output from function read_results (processed results from model)
         ## exppath = path of the excel file to export to
         ## NEWSHEET: 1= creates a new sheet (loose formatting of existing sheet), 0=updates existing sheet (keeps formatting)
@@ -1183,8 +1307,14 @@ class ResultAnalysis():
         #ADD PUT ALL LAND USE OUTPUTS HERE
         
         #FARMING ZONES
-        data=[oo['FarmZonesTable'],oo['LandUse_cul_fz'],oo['LandUse_fd_ft'],oo['Yield_cul_ft'],oo['CropProduction_cr_fz'],oo['FarmBenefits_ca_ft'],oo['FarmBenefits_fz_y']]
-        title=['Farming zone','Land Use [kha/y]','Land Use [kha/y]','Net Yield [t/ha]','Crop production [kt/y]','Net benefits [M$/y]','Net benefits [M$/y]']
+        data=[oo['FarmZonesTable'],oo['LandUse_cul_fz'],oo['LandUse_fd_ft'],
+              oo['Yield_cul_ft'],oo['CropProduction_cr_fz'],oo['FarmBenefits_ca_ft'],
+              oo['FarmBenefits_fz_y'],oo['AvLandShadow_fz_cul'],oo['WaterCons_cul_m'],
+              oo['WaterDem_cul_fz']]
+        title=['Farming zone','Land Use [kha/y]','Land Use [kha/y]',
+               'Net Yield [t/ha]','Crop production [kt/y]','Net benefits [M$/y]',
+               'Net benefits [M$/y]','Land shadowprice [$/ha]','Water consumption [Mm3/month]',
+               'Irrigation demand [mm/y]']
         self.exportsheet(writer,'FarmingZones',data,title,order={0:farmingzone})        
         
         #RESERVOIRS
@@ -1285,7 +1415,8 @@ class ResultAnalysis():
         self.exportsheet(writer,'RelOtherIndicators',reldata,title)
         
         #Investments
-        if sum((oo['Options'][scen]['Investment module'] if type(oo['Options'][scen]['Investment module']) is not str else 1) for scen in scenarios)>=1:
+        invopts=[oo['Options'][scen]['Investment module'] for scen in scenarios]
+        if 1 in invopts or 'continuous' in invopts:
             data    = [oo['InvestmentDecision_inv'],oo['InvestmentPhase_inv']]
             title   = ['Investment decision', 'Investment phase']
             self.exportsheet(writer,'Investments',data,title)

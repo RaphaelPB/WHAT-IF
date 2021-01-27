@@ -28,8 +28,8 @@ from result_analysis import ResultAnalysis
 #%%OPTIONS - MODIFY BY USER
 #SCENFILE=os.path.join(dirname,'Data','Scenarios_to_compare.xlsx')
 
-SHEET='main'
-FOLDERNAME='WHATIF_main'
+SHEET='ifpri'
+FOLDERNAME='nexus_300_ifpriidx'
 result_path = os.path.join(dirname,'Results',FOLDERNAME) 
 SCENFILE='Scenarios_to_compare.xlsx'
 #%%#####################################

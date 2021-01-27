@@ -18,12 +18,11 @@
 """
 
 #Import python packages
-from __future__                   import division   #As in python 2.7 division between integers gives an integer - avoid problems
 import time
 import os
 import pickle
 import sys
-from pyomo.environ                import Suffix, SolverFactory #Pyomo library 
+from pyomo.environ                import Suffix, SolverFactory,SolverManagerFactory #Pyomo library 
 #Set local directory
 dirname = os.path.abspath(os.path.dirname(__file__))
 #Import own libraries from "bin" directory
@@ -35,12 +34,16 @@ from result_analysis              import ResultAnalysis             #Collects re
 import multiprocess as mp
 
 #%%OPTIONS - MODIFY BY USER
-RESULTFOLDER = 'scenarios'+'_'+time.strftime("%d_%m_%Y_%Hh%M") #automatically generates names based on time and date (avoids erasing previous results)
+#export options
+RESULTFOLDER = 'Basecase'+'_'+time.strftime("%d_%m_%Y_%Hh%M") #automatically generates names based on time and date (avoids erasing previous results)
 UPDATE = 0 #0 updates all parameters, 1 updates only selected parameters
+EXPORT = 'xlsx' #'all' powerBI files + following, 'xlsx': individual excel files + following, 'txt': selected results + excel of all selected results
+#parallel options
 PARALLEL_scenario = 0 #Run scenarios in parallel 
-npll = 3 #Number of paralllel scenario solves
-EXPORT = 'all' #'all' powerBI files + following, 'xlsx': individual excel files + following, 'txt': selected results + excel of all selected results
-SOLVER = 'ipopt' #'cbc' #'cplex'
+npll = 3 #Maximum number of paralllel scenario solves
+#solver options
+NEOS        = 0# use 1 to use neos server (which avoids you to install the solvers)
+SOLVER = 'cplex' #'cbc' #'cplex'
 SOLVERPATH = 0 #0 is default, precise path only if required by solver
 
 #%%
@@ -55,7 +58,7 @@ Agriculture     = DataFolderPath + os.sep + 'AgricultureModule_ex.xlsx'
 CropMarket      = DataFolderPath + os.sep + 'CropMarketModule_ex.xlsx'
 Energy          = DataFolderPath + os.sep + 'EnergyModule_ex.xlsx'
 Investment      = DataFolderPath + os.sep + 'InvestmentModule_ex.xlsx'
-Param           = DataFolderPath + os.sep + 'Parameterspy37.txt' #parameters (python dictionnaries) saved as txt
+Param           = DataFolderPath + os.sep + 'Parameters.txt' #parameters (python dictionnaries) saved as txt
 
 print('Harvesting parameters...')
 parameters      = Database(update=UPDATE,DataFile=Param)
@@ -71,10 +74,8 @@ print('*Parameters harvested*')
 #Define single scenario analysis function    
 def ScenarioAnalysis(ss,parameters,solver):
     tt=time.time()
-    #Collect extra hydrology parameters (hydrology scenario has to be called 'sClimate')
+    #Collect csv parameters
     parameters.load_csv(DataFolderPath,ss)
-    #if 'sClimate' in parameters.val.keys() and parameters.val['sClimate'][ss] not in parameters.val['wRunOff'].keys():
-    #    parameters.load_hydrology(DataFolderPath,scenarios=[parameters.val['sClimate'][ss]])
     #Create model  
     print('Formulating scenario: ' + ss)
     HOM             = HydroeconomicOptimization(parameters,scenario=ss)
@@ -82,14 +83,23 @@ def ScenarioAnalysis(ss,parameters,solver):
     
     #Solve scenario
     print('Solving scenario: ' + ss)
-    solverstatus = solver.solve(HOM.model)
-    if HOM.model.Options['Investment module'] == 1:
+    if NEOS == 1:
+        solverstatus = solver.solve(HOM.model,opt=SOLVER,suffixes='dual')
+    else:
+        solverstatus = solver.solve(HOM.model)
+    if HOM.model.Options['Investment module'] in [1,'continuous']:
     #Fix selected investment to switch to fully linear model and get dual values
         for ip in HOM.model.ninvphase:
             for inv in HOM.model.ninvest:   
                 HOM.model.IbINVEST[ip,inv].fixed = True
+                if HOM.model.Options['Investment module'] in ['continuous']:
+                    if inv in HOM.model.ninvestb:
+                        HOM.model.IbINVESTb[ip,inv].fixed = True
         print('...re-solving scenario ' + ss)
-        solverstatus = solver.solve(HOM.model)        
+        if NEOS == 1:
+            solverstatus = solver.solve(HOM.model,opt=SOLVER,suffixes='dual')
+        else:
+            solverstatus = solver.solve(HOM.model)        
     
     #Collect and export results
     print('...saving and exporting results of ' + ss)
@@ -117,13 +127,16 @@ if not os.path.exists(ResultFolderPath):
     os.makedirs(ResultFolderPath)
     
 #Choose solver
-solver = SolverFactory(SOLVER,executable=SOLVERPATH) if SOLVERPATH != 0 else SolverFactory(SOLVER)
-#if solver.name == 'ipopt':
-#    solver.options['linear_solver']='ma97'
-    #solver.options['mu_strategy']='adaptive'
-    #solver.options['bound_relax_factor']=10**-12
-if solver.name=='cplex' and PARALLEL_scenario==1:
-    solver.options['threads'] = 1 #limit the number of parallel computing
+if NEOS == 1: #use neos server
+    solver = SolverManagerFactory('neos')
+else:  
+    solver = SolverFactory(SOLVER,executable=SOLVERPATH) if SOLVERPATH != 0 else SolverFactory(SOLVER)
+    #if solver.name == 'ipopt':
+        #solver.options['linear_solver']='ma97'
+        #solver.options['mu_strategy']='adaptive'
+        #solver.options['bound_relax_factor']=10**-12
+    if solver.name=='cplex' and PARALLEL_scenario==1:
+        solver.options['threads'] = 1 #limit the number of parallel computing
 
 if __name__ == '__main__':
     scenarios = parameters.val['nscenario']
@@ -134,5 +147,7 @@ if __name__ == '__main__':
     else:
         parallelresults=[ScenarioAnalysis(ss,parameters,solver) for ss in scenarios]
 #Save results (can be done later)
-    result_analysis=ResultAnalysis()
-    result_analysis.export_scenario_analysis(scenarios,parameters.val['sRefScen'],parallelresults,ResultFolderPath)
+    if 'sRefScen' in parameters.val.keys(): 
+        result_analysis=ResultAnalysis()
+        result_analysis.export_scenario_analysis(scenarios,parameters.val['sRefScen'],
+                                                 parallelresults,ResultFolderPath)

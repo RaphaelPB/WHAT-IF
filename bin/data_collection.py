@@ -49,8 +49,10 @@ class Database():
                       Scenario=None,MultiIndexName=None,MatrixName=None,
                       ColIndexName=None,OnlyCols=None):
         #Harvests one excel sheet, starting at row "Header"
+        i0=0 #start index to collect indices
         if Scenario != None and Scenario == Scenario:
             Index=Index+1
+            i0=1#avoids collect scenario index  
         Data = pd.read_excel(Path,sheet_name=SheetName, skiprows=Header, 
                              index_col=list(range(Index)), usecols=OnlyCols, engine='xlrd')
         if DataType==0: #Info data
@@ -60,50 +62,78 @@ class Database():
             for k in range(Index):
                 self.info[Data.index.names[k]]=Data.index.values                        
         else: #Collect indexes
-            self.collect_index_data(Data,Index,SheetName,MultiIndexName)                                        
+            self.collect_index_data(Data,Index,SheetName,MultiIndexName,i0=i0)                                        
         if DataType==1: #Classic column data
             self.collect_column_data(Data,Scenario)
         if DataType==2: #Matrix data
            self.collect_matrix_data(Data,Scenario,MatrixName,Index,ColIndexName,SheetName)
     
-    def collect_index_data(self,Data,Index,SheetName,MultiIndexName):
+    def collect_index_data(self,Data,Index,SheetName,MultiIndexName,i0=0):
         if Index==1:
             self._check_coherence(Data.index.name,Data.index.values,SheetName)
             self.val[Data.index.name]=Data.index.values
             self.memo[Data.index.name]=SheetName #remembers sheetname for check_coherence
-        else:                
-            for k in range(Index):                
+        else:
+            for k in range(i0,Index):                
                 self._check_coherence(Data.index.names[k],Data.index.levels[k].values,SheetName)
                 self.val[Data.index.names[k]]=Data.index.levels[k].values
                 self.memo[Data.index.names[k]]=SheetName #remembers sheetname for check_coherence
-            if MultiIndexName != None and MultiIndexName != 'nan':
+            if MultiIndexName != None and MultiIndexName == MultiIndexName:
                 self.val[MultiIndexName]=Data.index.values
                     
     def collect_column_data(self,Data,Scenario,onlyscen=0):
         if Scenario != None and Scenario == Scenario: #if data has scenario, scenario is as separate index
             for k in Data.axes[1]:
-                self.val[k]={scen:Data.loc[scen].to_dict()[k] 
-                             for scen in Data.index.levels[0].values if onlyscen==0 or scen==onlyscen}
+                tempdic={}
+                scens=Data.index.levels[0].values
+                for scen in scens:
+                    if onlyscen==0 or scen==onlyscen:
+                        if '*' in str(scen): #the scenario is an update
+                            scenup,scenor=scen.split('*')
+                            if scenor.isdigit() and scenor not in scens: #specific case where the scenario indicator is a number
+                                scenor=int(scenor)
+                            #extract reference scenario
+                            val=Data[k].xs(scenor,level=0).to_dict()
+                            #update with modifications to orginal scenario
+                            val.update(Data[k].xs(scen,level=0).to_dict())
+                            tempdic[scenup]=val
+                        else:
+                            tempdic[str(scen)]=Data[k].xs(scen,level=0).to_dict()
+                self.val[k]=tempdic
                 self.scen[k]=Scenario
         else:            
             for k in Data.axes[1]:
                 self.val[k]=Data.to_dict()[k]
                     
-    def collect_matrix_data(self,Data,Scenario,MatrixName,Index,ColIndexName,SheetName,onlyscen=0):
+    def collect_matrix_data(self,Data,Scenario,MatrixName,Index,ColIndexName,
+                            SheetName,onlyscen=0):
     #Collect matrix data
         #drop "wrong" columns 
         todrop=[col for col in Data.columns if type(col) is str and 'Unnamed:' in col]
         Data=Data.drop(todrop,axis=1)
         if Scenario != None and Scenario == Scenario:
-            self.val[MatrixName]={scen:Data.xs(scen,level=0).stack(dropna=False).to_dict() 
-                                  for scen in Data.index.levels[0].values 
-                                  if onlyscen==0 or scen==onlyscen}
+            tempdic={}
+            scens=Data.index.levels[0].values
+            for scen in scens:
+                if onlyscen==0 or scen==onlyscen:
+                    if '*' in str(scen): #the scenario is an update
+                        scenup,scenor=scen.split('*') #get original and updated scenario
+                        if scenor.isdigit() and scenor not in scens: #specific case where the scenario indicator is a number
+                            scenor=int(scenor)
+                        #extract reference scenario
+                        val=Data.xs(scenor,level=0).stack(dropna=False).to_dict()
+                        #update with modifications to orginal scenario
+                        val.update(Data.xs(scen,level=0).stack(dropna=False).to_dict())
+                        tempdic[scenup]=val
+                    else:
+                        tempdic[str(scen)]=Data.xs(scen,level=0).stack(dropna=False).to_dict()
+            self.val[MatrixName]=tempdic
             self.scen[MatrixName]=Scenario
         else:
             self.val[MatrixName]=Data.stack(dropna=False).to_dict()
 
         #Collect matrix column index
-        if ColIndexName != None and ColIndexName != 'nan':
+        if ColIndexName != None and ColIndexName == ColIndexName:
             self.val[ColIndexName]=[k for k in Data.axes[1] if type(k) is not str or 'Unnamed:' not in k]
             self.memo[ColIndexName]=SheetName
             
@@ -124,6 +154,7 @@ class Database():
                             'Update':self.info['Update'][k],
                             'DataType':self.info['DataType'][k],
                             'Scenario':self.info['Scenario'][k],
+                            'OnlyScen':self.info['Onlyscen'][k] if 'Onlyscen' in self.info.keys() else None,
                             'MatrixName':self.info['MatrixName'][k],
                             'ColIndexName':self.info['ColIndexName'][k],
                             'MultiIndexName':self.info['MultiIndexName'][k]}
@@ -182,23 +213,28 @@ class Database():
             opt=self.csv[pfile] #reading options of the csv file
             onlyscen=0
             iindex=opt['Index']
+            i0=0
             if opt['Scenario'] != None and opt['Scenario']==opt['Scenario']:
-                #onlyscen=self.val[opt['Scenario']][nscenario] #read only that scenario
+                if opt['OnlyScen'] == 1:
+                    onlyscen=self.val[opt['Scenario']][nscenario] #read only that scenario
                 iindex+=1 #add scenario index
+                i0=1
             data = pd.read_csv(os.path.join(datafolder,pfile),sep=CSVSEPARATOR,decimal=CSVDECIMAL,
                                index_col=list(range(iindex)))
-            self.collect_index_data(data,opt['Index'],pfile,opt['MultiIndexName'])                                       
+            self.collect_index_data(data,opt['Index'],pfile,opt['MultiIndexName'],i0=i0)                                       
             if opt['DataType']==1: #Classic column data
                 self.collect_column_data(data,opt['Scenario'],onlyscen=onlyscen)
             if opt['DataType']==2: #Matrix data
-                self.collect_matrix_data(data,opt['Scenario'],opt['MatrixName'],iindex,opt['ColIndexName'],pfile,onlyscen=onlyscen)
+                self.collect_matrix_data(data,opt['Scenario'],opt['MatrixName'],
+                                         iindex,opt['ColIndexName'],pfile,onlyscen=onlyscen)
         
     def read_param(self,ParamName,option=1,index=0,time='all',scenario='',directparam=0):
         #hard coded growing parameters
         GrowingParameters=['wUserDem',
                            'eEngyDem','eFuelCost','eCO2Val','eCAPEX', 'eOppCost', 'eOppCap',
                            'aCropDem','aCropVal','aTransCost','aFarmVal',
-                           'aCulYield','aLandCap','aCulMax']
+                           'aCulYield','aLandCap','aCulMax',
+                           'iCAPEX']
         if directparam!=0 and ParamName in directparam.keys(): #Assign parameter directly and not from parameters object 
             return directparam[ParamName]
         if ParamName not in self.val.keys() or option == 0: #parameter is not activated          
@@ -209,7 +245,7 @@ class Database():
             Param = self.grow_param(ParamName,scenario=scenario)
         else:
             if ParamName in self.scen.keys():
-                datascen=self.val[self.scen[ParamName]][scenario]
+                datascen=str(self.val[self.scen[ParamName]][scenario])
                 Param = self.val[ParamName][datascen]
             else:
                 Param = self.val[ParamName]
@@ -231,22 +267,23 @@ class Database():
         years=self.val['year']
         scen=self.val[self.scen[ParamName]][scenario] if ParamName in self.scen.keys() else ''
         if optionON==1 and scen in self.read_param('ngrowthscen'): #Linear interpolation from values A to B to C (optional)
-            ValuesA=self.val[ParamName][self.read_param('StatusA')[scen]]
-            ValuesB=self.val[ParamName][self.read_param('StatusB')[scen]]                                       
+            ValuesA=self.val[ParamName][str(self.read_param('StatusA')[scen])]
+            ValuesB=self.val[ParamName][str(self.read_param('StatusB')[scen])]                                 
             yearA=int(self.read_param('yearA')[scen])
-            yearB=int(self.read_param('yearB')[scen])     
+            yearB=int(self.read_param('yearB')[scen])
             DicAB=LinearGrowAtoB(ValuesA,ValuesB,yearA,yearB,years)
             if self.read_param('StatusC')[scen] == self.read_param('StatusC')[scen]: #Value is not a NAN
-                ValuesC=self.val[ParamName][self.read_param('StatusC')[scen]]
+                ValuesC=self.val[ParamName][str(self.read_param('StatusC')[scen])]
                 yearC=int(self.read_param('yearC')[scen])
                 yyears=[y for y in years if y>=yearB]
                 DicBC=LinearGrowAtoB(ValuesB,ValuesC,yearB,yearC,yyears)
-                DicAB.update(DicBC)                
+                DicAB.update(DicBC)              
         else: #Constant parameter through years 
-            if ParamName in self.scen.keys():                    
-                DicAB=LinearGrowAtoB(self.val[ParamName][scen],self.val[ParamName][scen],1,2,years) #1,2 are dummy values
+            if ParamName in self.scen.keys():
+                values=self.val[ParamName][str(scen)]                           
             else:
-                DicAB=LinearGrowAtoB(self.val[ParamName],self.val[ParamName],1,2,years)
+                values=self.val[ParamName]
+            DicAB=LinearGrowAtoB(values,values,1,2,years) #1,2 are dummy values
         return DicAB
     
     def read_time(self,scenario):
@@ -269,7 +306,7 @@ class Database():
         self.val['t_year'] = {t:int(y0)+(t-int(t0))//len(monthorder) for t in self.val['ntime']} #year of time steps
         self.val['t_month'] = {t:monthorder[(t-int(t0)+nm0)%len(monthorder)] for t in self.val['ntime']} #month of time steps
         t_prev = {t:t-1 for t in ttime} #previous time step       
-        year = [self.val['t_year'][t] for t in range(tini,tfin+1,len(monthorder))]  
+        year = [self.val['t_year'][t] for t in range(tini,tfin+1,len(monthorder))]
         self.val['year']=year
         if self.val['Options']['Initial time step',stime]== 0: #Close the loop for cyclic model
             t_prev[tini]=tfin
