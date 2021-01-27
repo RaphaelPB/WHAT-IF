@@ -8,9 +8,9 @@ distributed under the GPLv3 license and is described in the [HESS publication](h
 
 ## Wiki
 Check the [wiki page](https://github.com/RaphaelPB/WHAT-IF/wiki) for all detailed information:
-* [[Installing and running WHAT IF|Installing and running WHAT IF]]  to install and run WHAT-IF
-* [[Creating, running and comparing scenarios]] to create and compare scenarios
-* [[Installing extra solvers]] to add solvers
+* [Code structure](https://github.com/RaphaelPB/WHAT-IF/wiki/Code-structure)
+* [Installing and running WHAT IF](https://github.com/RaphaelPB/WHAT-IF/wiki/Installing-and-running-WHAT-IF)
+* [Creating, running and comparing scenarios](https://github.com/RaphaelPB/WHAT-IF/wiki/Creating,-running-and-comparing-scenarios) 
 * and many more...
 
 
@@ -34,8 +34,8 @@ To do so, in the anaconda prompt, run:
 
 
 ## Contributors 
-Payet-Burin Raphaël (DTU/COWI - rapp@env.dtu.dk)
-Mikkel Kromann (dansk energi)
-Peter Bauer-Gottwein (DTU)
-Silvio Pereira-Cardenal (COWI)
+Payet-Burin Raphaël (DTU/COWI - rapp@env.dtu.dk)  
+Mikkel Kromann (dansk energi)  
+Peter Bauer-Gottwein (DTU - pbau@env.dtu.dk)
+Silvio Pereira-Cardenal (COWI - sipa@cowi.com)
 Kenneth Strzepek (MIT)
