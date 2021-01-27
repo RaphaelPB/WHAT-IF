@@ -1,12 +1,14 @@
 # WHAT-IF: Supporting water infrastructure investment planning with hydroeconomic optimization models 
+**Master branch**
 
-**This is the example branch - perfect start point to create your own WHAT-IF case study !**
+## The decision support tool
 
 The WHAT-IF (Water, Hydropower, Agriculture Tool for Investment and Financing) model is an open source decision support tool 
 distributed under the GPLv3 license and is described in the [HESS publication](https://www.hydrol-earth-syst-sci-discuss.net/hess-2019-167/):
 > WHAT-IF: an open-source decision support tool for water infrastructure investment planning within the Water-Energy-Food-Climate Nexus  
 
 ## Wiki
+
 Check the [wiki page](https://github.com/RaphaelPB/WHAT-IF/wiki) for all detailed information:
 * [Code structure](https://github.com/RaphaelPB/WHAT-IF/wiki/Code-structure)
 * [Installing and running WHAT IF](https://github.com/RaphaelPB/WHAT-IF/wiki/Installing-and-running-WHAT-IF)
@@ -14,7 +16,7 @@ Check the [wiki page](https://github.com/RaphaelPB/WHAT-IF/wiki) for all detaile
 * and many more...
 
 
-## Usage
+## Install
 
 The [Installing and running WHAT IF](https://github.com/RaphaelPB/WHAT-IF/wiki/Installing-and-running-WHAT-IF) contains a step by step guide describing the process, in brief:
 * Install the [Anaconda navigator](https://anaconda.org/anaconda/anaconda-navigator), 
@@ -30,8 +32,10 @@ the simpliest way to manage your pyhton packages and versions
 
 
 ## Contributors 
+> Innovation Fund Denmark (grant no. 7038-00015B), COWIfonden, the Technical University of Denmark (DTU), the Massachusetts Institute of Technology (MIT), and COWI A/S funded the industrial PhD project in which this research was carried out  
+
 Payet-Burin Raphaël (DTU/COWI - rapp@env.dtu.dk)  
 Mikkel Kromann (dansk energi)  
-Peter Bauer-Gottwein (DTU - pbau@env.dtu.dk)
-Silvio Pereira-Cardenal (COWI - sipa@cowi.com)
-Kenneth Strzepek (MIT)
+Peter Bauer-Gottwein (DTU - pbau@env.dtu.dk)  
+Silvio Pereira-Cardenal (COWI - sipa@cowi.com)  
+Kenneth Strzepek (MIT)  
