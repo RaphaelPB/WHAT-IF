@@ -6,7 +6,12 @@ The WHAT-IF (Water, Hydropower, Agriculture Tool for Investment and Financing) m
 distributed under the GPLv3 license and is described in the [HESS publication](https://www.hydrol-earth-syst-sci-discuss.net/hess-2019-167/):
 > WHAT-IF: an open-source decision support tool for water infrastructure investment planning within the Water-Energy-Food-Climate Nexus  
 
-Check the [wiki page](https://github.com/RaphaelPB/WHAT-IF/wiki) for all detailed information
+## Wiki
+Check the [wiki page](https://github.com/RaphaelPB/WHAT-IF/wiki) for all detailed information:
+* [[Installing and running WHAT IF|Installing and running WHAT IF]]  to install and run WHAT-IF
+* [[Creating, running and comparing scenarios]] to create and compare scenarios
+* [[Installing extra solvers]] to add solvers
+* and many more...
 
 
 ## Usage
