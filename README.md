@@ -3,7 +3,7 @@
 
 ## The decision support tool
 
-The WHAT-IF (Water, Hydropower, Agriculture Tool for Investment and Financing) model is an open source decision support tool 
+WHAT-IF (Water, Hydropower, Agriculture Tool for Investment and Financing) is an open source decision support tool 
 distributed under the GPLv3 license and is described in the [HESS publication](https://www.hydrol-earth-syst-sci-discuss.net/hess-2019-167/):
 > WHAT-IF: an open-source decision support tool for water infrastructure investment planning within the Water-Energy-Food-Climate Nexus  
 
@@ -15,11 +15,11 @@ The main feedback loops in the model are summarized in the figure below.
 
 ![WHAT-IF model](https://github.com/RaphaelPB/WHAT-IF/blob/master/Documents/images/WHATIF_model.PNG)  
 
-The model operates at a user-defined (monthly is default) timestep and at a catchment scale. 
+The model operates at monthly timesteps and at a catchment scale. 
 The hydrological module is represented through timeseries of hydrological cycle water balance variables (rainfall, runoff, evapotranspiration, groundwater recharge). 
 Reservoirs can store and release water, while domestic and industrial users withdraw and return water considering supply costs and treatment technologies. 
 Individual crops are represented and their water requirements are internally computed in the model using the FAO-56 method, 
-while actual yields are calculated using potential yields and the FAO-33 method; livestock water demands can be user-specified. 
+while actual yields are calculated using exogenous potential yields and the FAO-33 method; livestock water demands can be user-specified. 
 Crop production is calculated at the catchment level. Markets and trade are represented at national or subnational level, 
 depending on the scope and data availability. 
 Hydropower plants are individually represented, while other energy technologies are represented through aggregated power units 
