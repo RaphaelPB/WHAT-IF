@@ -19,7 +19,7 @@ Check the [wiki page](https://github.com/RaphaelPB/WHAT-IF/wiki) for all detaile
 The [Installing and running WHAT IF](https://github.com/RaphaelPB/WHAT-IF/wiki/Installing-and-running-WHAT-IF) contains a step by step guide describing the process, in brief:
 * Install the [Anaconda navigator](https://anaconda.org/anaconda/anaconda-navigator), 
 the simpliest way to manage your pyhton packages and versions
-* In the anaconda prompt, run:
+* In the anaconda prompt, run:  
 `conda config --add channels conda-forge`  
 `conda create -n WHATIF_py37 python=3.7.3`  
 `conda install -n WHATIF_py37 openpyxl xlsxwriter xlrd pyomo=5.6.2 pandas numpy multiprocess ipopt glpk`  
