@@ -16,20 +16,16 @@ Check the [wiki page](https://github.com/RaphaelPB/WHAT-IF/wiki) for all detaile
 
 ## Usage
 
-The **Documents** folder contains a step by step guide **How_to_Install_WHATIF** describing the process, in brief:
+The [Installing and running WHAT IF](https://github.com/RaphaelPB/WHAT-IF/wiki/Installing-and-running-WHAT-IF) contains a step by step guide describing the process, in brief:
 * Install the [Anaconda navigator](https://anaconda.org/anaconda/anaconda-navigator), 
 the simpliest way to manage your pyhton packages and versions
+* In the anaconda prompt, run:
+`conda config --add channels conda-forge`  
+`conda create -n WHATIF_py37 python=3.7.3`  
+`conda install -n WHATIF_py37 openpyxl xlsxwriter xlrd pyomo=5.6.2 pandas numpy multiprocess ipopt glpk`  
+`conda activate WHATIF_py37`  
 
-* Install the WHATIF_py37 environment from the **Documents** folder
-
-To do so, in the anaconda prompt, run:
-
-* `conda config --add channels conda-forge`
-* `conda create -n WHATIF_py37 python=3.7.3`
-* `conda install -n WHATIF_py37 openpyxl xlsxwriter xlrd pyomo=5.6.2 pandas numpy multiprocess ipopt glpk`
-* `conda activate WHATIF_py37` 
-
-* Recommended solvers are ipopt (non-linear), cplex (free for academics) or glpk (open-source)
+* Recommended solvers are ipopt (open-source, non-linear), cplex (free for academics, linear) 
 * WHAT-IF is now only released with Python 3.7
 
 
