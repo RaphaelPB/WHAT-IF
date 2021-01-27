@@ -1,4 +1,4 @@
-﻿# WHAT-IF: Supporting water infrastructure investment planning with hydroeconomic optimization models 
+# WHAT-IF: Supporting water infrastructure investment planning with hydroeconomic optimization models 
 **Master branch**
 
 ## The decision support tool
