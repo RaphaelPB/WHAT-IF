@@ -36,6 +36,6 @@ the simpliest way to manage your pyhton packages and versions
 
 Payet-Burin Raphaël (DTU/COWI - rapp@env.dtu.dk)  
 Mikkel Kromann (dansk energi)  
-Peter Bauer-Gottwein (DTU - pbau@env.dtu.dk)  
-Silvio Pereira-Cardenal (COWI - sipa@cowi.com)  
+Peter Bauer-Gottwein (DTU)  
+Silvio Pereira-Cardenal (COWI)  
 Kenneth Strzepek (MIT)  
