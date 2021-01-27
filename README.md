@@ -13,7 +13,7 @@ The hydro-economic optimization framework enables the tool to solve synergies an
 energy and agricultural sector and explore a large range of scenarios considering exogenous climate change and socio-economic drivers. 
 The main feedback loops in the model are summarized in the figure below.  
 
-[WHAT-IF model](https://github.com/RaphaelPB/WHAT-IF/blob/master/Documents/images/WHATIF_model.PNG)  
+![WHAT-IF model](https://github.com/RaphaelPB/WHAT-IF/blob/master/Documents/images/WHATIF_model.PNG)  
 
 The model operates at a user-defined (monthly is default) timestep and at a catchment scale. 
 The hydrological module is represented through timeseries of hydrological cycle water balance variables (rainfall, runoff, evapotranspiration, groundwater recharge). 
