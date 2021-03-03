@@ -592,7 +592,7 @@ def SolveScenario(ss,parameters_in,solver,paths):
         TIME['perfect_forecast']=int(MPC.split('#')[1]) #Perfect forecast horizon (real hydrology is used at this horizon)
         nEM=int(MPC.split('#')[2]) #Number of ensemble members (if =1 weighted forecast)
         ensoption = MPC.split('#')[3] if len(MPC.split('#'))>3 else 0 #Method to derive optimal control actions from forecast
-        weighted= 1 if ensoption in ['w','bm','bw','ec'] else 0 #1: ensemble are not sampled randomly, but their output DV are weighted accordinf to kernel
+        weighted= 1 if ensoption in ['w','bm','bw','ec'] else 0 #1: ensemble are not sampled randomly, but their output DV are weighted according to kernel
         if ensoption == 'ec':
             weighted= 'ens_class'
             TIME['ens_class_cuts']=[int(k) for k in oopt['Ensemble Class Cuts'].split('#')]
