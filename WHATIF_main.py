@@ -111,7 +111,7 @@ if HOM.model.Options['Investment module'] in [1,'continuous']:
    if NEOS == 1:
        solverstatus = solver_manager.solve(HOM.model,opt=SOLVER,suffixes='dual')
    else:
-       solverstatus = solver.solve(HOM.model,tee=True) 
+       solverstatus = solver.solve(HOM.model)#,tee=True) 
 
 print(solverstatus)
 print(time.time()-t)
