@@ -33,20 +33,21 @@ if CSVDECIMAL == ',':
     CSVSEPARATOR = ';'
 
 #%%OPTIONS - MODIFY BY USER
-SHEET='main'
-FOLDERNAME='WHATIF_main'
+SHEET='loadX'
+FOLDERNAME='load_cstime_access'
 DIFFMODE=0 # if=1 exports relative results to POWERBI, instead of absolute (=0)
 SCENFILE='Scenarios_to_compare.xlsx'
 result_path = os.path.join(dirname,'Results',FOLDERNAME)
-
+#CSVSEPARATOR=';'
+#CSVDECIMAL=','
 #%%#####################################
 #               FUNCTIONS
 
 #Export panda dataframe to .csv
-def pd_to_csv(folder,file,pdata,iindex=True):
+def pd_to_csv(folder,file,pdata,nround=3):
     file = os.path.join(folder,file)
     if isinstance(pdata,pd.DataFrame):
-        return pdata.to_csv(file,sep=CSVSEPARATOR,decimal=CSVDECIMAL,index=iindex)
+        return pdata.round(nround).to_csv(file,sep=';',decimal=',',index='False')
 #Transfor dictionary in panda dataframe (for specific dic structure)
 def dict_to_pd(dic):
     if dic != {}:
@@ -87,9 +88,10 @@ def aggregate_scenarios_to_csv(scenarios,vardic,outpath,keytype='tuple',indexnam
         elist=[]
         for scen in scenarios:
             for key in vardic[scen].keys():
-                elist.append(key)        
+                if key != 'AlCULAREAXXXX': #solve troubles
+                    elist.append(key)        
         elist=set(elist)
-
+    emptylist=[]
     for elem in elist:
         print(elem)
         #scenarios that contain that element
@@ -133,31 +135,25 @@ def aggregate_scenarios_to_csv(scenarios,vardic,outpath,keytype='tuple',indexnam
                 pdata.index.names=indexname[elem]
                 if renamecol==1:
                     pdata.columns=[elem]
-            iindex=True #for export
         elif pdata.empty and keytype=='nested': #when crop market or power market off
             if indexname != 0:
                 indexname[elem].insert(0,'scenario')
                 for k in range(len(indexname[elem])):
                     pdata.insert(k,indexname[elem][k],0)
-                iindex=False #for export
-        elif pdata.empty and keytype=='tuple': #decision variable present but void (probably modelling/data error but not critical)
-            if elem in indexname.keys():
-                indexname[elem].insert(0,'scenario')
-                pdata=pd.DataFrame(columns=indexname[elem]+[elem])
-                iindex=False #for export
+        elif pdata.empty and keytype=='tuple': # create empty data later
+            emptylist.append(elem)
         #export to csv
         filename=str(elem)+'.csv'
-        pd_to_csv(outpath,filename,pdata,iindex=iindex)
+        pd_to_csv(outpath,filename,pdata=pdata)
     
     #Create empty datasets for not exported Decision variables
     if indexname != 0:
         for elem in indexname.keys():
-            if elem not in elist:
+            if elem not in elist or elem in emptylist:
                 indexname[elem].insert(0,'scenario')
                 pdata=pd.DataFrame(columns=indexname[elem]+[elem])
                 filename=str(elem)+'.csv'
-                pd_to_csv(outpath,filename,pdata,iindex=False)
-                #pdata.to_csv(os.path.join(outpath,filename),sep=CSVSEPARATOR,decimal=CSVDECIMAL,index=False)
+                pdata.to_csv(os.path.join(outpath,filename),sep=CSVSEPARATOR,decimal=CSVDECIMAL,index=False)
 #%%#####################################
 #        COLLECT INFORMATION
         
@@ -199,7 +195,6 @@ VarIndex={
  'WwRSTORAGE':['ntime', 'nres'],
  'WwSUPPLY':['ntime', 'nuser'],
  'WwTRANSFER':['ntime', 'ntransfer'],
- 'JjPROD':['ntime','njactivity'],
  'IbINVEST':['ninvphase','ninvest'],
  'energy_shadow':['ntime','npload','npmarket'],
  'crop_shadow':['nyear','ncmarket','ncrop'],#,'ncdstep'],

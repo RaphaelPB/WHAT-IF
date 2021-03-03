@@ -37,7 +37,7 @@ import multiprocess as mp
 #export options
 RESULTFOLDER = 'Basecase'+'_'+time.strftime("%d_%m_%Y_%Hh%M") #automatically generates names based on time and date (avoids erasing previous results)
 UPDATE = 0 #0 updates all parameters, 1 updates only selected parameters
-EXPORT = 'xlsx' #'all' powerBI files + following, 'xlsx': individual excel files + following, 'txt': selected results + excel of all selected results
+EXPORT = 'all' #'all' powerBI files + following, 'xlsx': individual excel files + following, 'txt': selected results + excel of all selected results
 #parallel options
 PARALLEL_scenario = 0 #Run scenarios in parallel 
 npll = 3 #Maximum number of paralllel scenario solves

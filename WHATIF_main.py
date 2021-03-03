@@ -32,7 +32,7 @@ from result_analysis              import ResultAnalysis             #Exports res
 
 #%%OPTIONS - MODIFY BY USER
 #scenario to run
-SCENARIO    = 'SSP2Xbase' #Scenario to be run, 'WHATIF_main' is default
+SCENARIO    = 'invest' #Scenario to be run, 'WHATIF_main' is default
 #export options
 RESULTFOLDER= 'WHATIF_main'#+time.strftime("%d_%m_%Y_%Hh%M") #automatically generates names based on time and date (avoids erasing previous results)
 NEWSHEET    = 1 #1 creates a new sheet, 0 fills existing sheet
@@ -53,12 +53,12 @@ OutPath         = ResultFolderPath + os.sep + 'modelrun_' + time.strftime("%d_%m
 ResultExport    = ResultFolderPath + os.sep + 'RESULTS.txt' #results (python objects) saved as txt
 
 #Define path to data
-Main            = DataFolderPath + os.sep + 'MainFile_ex.xlsx'
-Water           = DataFolderPath + os.sep + 'WaterModule_ex.xlsx'
-Agriculture     = DataFolderPath + os.sep + 'AgricultureModule_ex.xlsx'
-CropMarket      = DataFolderPath + os.sep + 'CropMarketModule_ex.xlsx'
-Energy          = DataFolderPath + os.sep + 'EnergyModule_ex.xlsx'
-Investment      = DataFolderPath + os.sep + 'InvestmentModule_ex.xlsx'
+Main            = DataFolderPath + os.sep + 'MainFile.xlsx'
+Water           = DataFolderPath + os.sep + 'WaterModule.xlsx'
+Agriculture     = DataFolderPath + os.sep + 'AgricultureModule.xlsx'
+CropMarket      = DataFolderPath + os.sep + 'CropMarketModule.xlsx'
+Energy          = DataFolderPath + os.sep + 'EnergyModule.xlsx'
+Investment      = DataFolderPath + os.sep + 'InvestmentModule.xlsx'
 Param           = DataFolderPath + os.sep + 'Parameters.txt' #parameters (python dictionnaries) saved as txt
 
 #Collect parameters
@@ -97,7 +97,7 @@ else:
     #if solver.name == 'ipopt':
         #solver.options['linear_solver']='ma97'
         #solver.options['bound_relax_factor']=0
-    solverstatus    = solver.solve(HOM.model,tee=True)#,keepfiles=True,logfile=os.path.join(dirname, 'logREAD.log')) #
+    solverstatus    = solver.solve(HOM.model)#,tee=True,keepfiles=True,logfile=os.path.join(dirname, 'logREAD.log')) #
 
 
 if HOM.model.Options['Investment module'] in [1,'continuous']:
@@ -111,7 +111,7 @@ if HOM.model.Options['Investment module'] in [1,'continuous']:
    if NEOS == 1:
        solverstatus = solver_manager.solve(HOM.model,opt=SOLVER,suffixes='dual')
    else:
-       solverstatus = solver.solve(HOM.model,tee=True) 
+       solverstatus = solver.solve(HOM.model)#,tee=True) 
 
 print(solverstatus)
 print(time.time()-t)

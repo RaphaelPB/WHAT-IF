@@ -33,8 +33,8 @@ if CSVDECIMAL == ',':
     CSVSEPARATOR = ';'
 
 #%%OPTIONS - MODIFY BY USER
-SHEET='ifpri'
-FOLDERNAME='nexus_300_ifpriidx'
+SHEET='newcc'
+FOLDERNAME='cc2C_all_loadPFx'
 DIFFMODE=0 # if=1 exports relative results to POWERBI, instead of absolute (=0)
 SCENFILE='Scenarios_to_compare.xlsx'
 result_path = os.path.join(dirname,'Results',FOLDERNAME)
@@ -193,9 +193,9 @@ VarIndex={
  'Crop_price_dpt':['nyear', 'ncountry', 'ncrop'],
  'Cul_Dem_mm':['nyear', 'ncountry', 'nculture'],
  'Cul_Rain_mm':['nyear', 'ncountry', 'nculture'],
- 'Runoff_Mm3':['nyear', 'ntime'],
- 'ET_mm':['nyear', 'ntime'],
- 'P_mm':['nyear', 'ntime'],
+ 'Runoff_Mm3':['nyear', 'ntime','ncountry'],
+ 'ET_mm':['nyear', 'ntime','ncountry'],
+ 'P_mm':['nyear', 'ntime','ncountry'],
  'Cul_Cons_Mm3':['nyear', 'ntime', 'ncountry', 'ncrop']
  }
 

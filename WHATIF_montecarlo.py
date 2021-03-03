@@ -141,7 +141,7 @@ def ScenarioAnalysis(ss,parameters_in,solver):
     if ANALYSIS in ['reanalysis','indinv']:
         HOM.model.invest_after.deactivate()
         HOM.model.invest_year.deactivate()
-        HOM.model.invest_binary.deactivate()
+    
     #Save economic balance of optimal invesmtents
     if ANALYSIS in ['reanalysis','indinv']:
         #outputinv=result_analysis.selectedresults(HOM.model,parameters,scenario=ss)
@@ -223,12 +223,12 @@ if __name__ == '__main__':
     ResultFolderPath= os.path.join(dirname, 'Results',RESULTFOLDER+time.strftime("%d_%m_%Y_%Hh%M"))
     DataFolderPath  = os.path.join(dirname, 'Data')    
     #Collect parameters
-    Main            = DataFolderPath + os.sep + 'MainFile_ex.xlsx'
-    Water           = DataFolderPath + os.sep + 'WaterModule_ex.xlsx'
-    Agriculture     = DataFolderPath + os.sep + 'AgricultureModule_ex.xlsx'
-    CropMarket      = DataFolderPath + os.sep + 'CropMarketModule_ex.xlsx'
-    Energy          = DataFolderPath + os.sep + 'EnergyModule_ex.xlsx'
-    Investment      = DataFolderPath + os.sep + 'InvestmentModule_ex.xlsx'
+    Main            = DataFolderPath + os.sep + 'MainFile.xlsx'
+    Water           = DataFolderPath + os.sep + 'WaterModule.xlsx'
+    Agriculture     = DataFolderPath + os.sep + 'AgricultureModule.xlsx'
+    CropMarket      = DataFolderPath + os.sep + 'CropMarketModule.xlsx'
+    Energy          = DataFolderPath + os.sep + 'EnergyModule.xlsx'
+    Investment      = DataFolderPath + os.sep + 'InvestmentModule.xlsx'
     Param           = DataFolderPath + os.sep + 'Parameters.txt' #parameters (python dictionnaries) saved as txt    
     print('Harvesting parameters...')
     parameters      = Database(update=UPDATE,DataFile=Param)
@@ -304,10 +304,13 @@ if __name__ == '__main__':
             if pn in nS:
                 parameters.val[pn]=loadscen[pn]
                 #ADD custom special case for synthetic case with silo versus nexus
-                if SPECIALCASE in ['noag']:
-                    if pn == 'sUserDem':
+                if SPECIALCASE in ['food','eg']:
+                    if pn == 'sInvestCPX':
                         for sn in scenarios:
-                            parameters.val[pn][sn]='noag_'+parameters.val[pn][sn]
+                            if SPECIALCASE=='food':
+                                parameters.val[pn][sn]='food'#
+                            if SPECIALCASE=='eg':
+                                parameters.val[pn][sn]='eg'+parameters.val[pn][sn]
             else:
                 for sn in scenarios:
                     parameters.val[pn][sn]=parameters.val[pn][sn0]
@@ -374,5 +377,3 @@ if __name__ == '__main__':
                 pnpv.loc[k,pn]=memory[k][pn]
                 
         pnpv.to_csv(os.path.join(ResultFolderPath,'NPV.csv'),sep=';',decimal=',')
-        
-#%% Define investment plans

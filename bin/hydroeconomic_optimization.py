@@ -731,7 +731,7 @@ class HydroeconomicOptimization():
         if md.Options['Investment module'] in [1,'continuous']:
             md.invest_budget   = Constraint(md.ninvphase, rule=invest_budget)
             md.invest_after = Constraint(md.ninvphase, md.ninvest, rule=invest_after)
-            md.invest_year  = Constraint(md.ninvest,md.ninvphase, rule=invest_year)  
+            md.invest_year  = Constraint(md.ninvest, md.ninvphase, rule=invest_year)  
             md.invest_once  = Constraint(md.ninvest, rule=invest_once)
         if md.Options['Investment module'] in ['continuous']:
             md.invest_max = Constraint(md.ninvphase, md.ninvest, rule=invest_max)
@@ -1193,9 +1193,9 @@ class HydroeconomicOptimization():
             if nplda == npldb:
                 return Constraint.Skip
             else:
-                ProdRateSegA    = md.se*md.EeOPPROD[nt,nplda,nop] / md.eLoadTime[nplda] #[kWh/day]
-                ProdRateSegB    = md.se*md.EeOPPROD[nt,npldb,nop] / md.eLoadTime[npldb] #[kWh/day]
-                RampingCap      = md.eOppCap[ny,nop] * md.eOppRamp[nop] #[kWh/day]
+                ProdRateSegA    = md.se*md.EeOPPROD[nt,nplda,nop] / md.eLoadTime[nplda] #[GWh/month]
+                ProdRateSegB    = md.se*md.EeOPPROD[nt,npldb,nop] / md.eLoadTime[npldb] #[GWh/month]
+                RampingCap      = md.eOppCap[ny,nop] * md.eOppRamp[nop] * md.MW_to_GWhperMonth #[GWh/month]
                 return  ProdRateSegA <= ProdRateSegB + RampingCap    #Power plant's Load rate from load segment to other is not allow to vary more than ramp rate
         
         def cooling_const(md,nt,npld,nop): #Cooling constraints of thermal power plants 
