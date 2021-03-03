@@ -1,5 +1,5 @@
-# WHAT-IF: Supporting water infrastructure investment planning with hydroeconomic optimization models 
-**Master branch**
+﻿# WHAT-IF: Supporting water infrastructure investment planning with hydroeconomic optimization models 
+**Master branch** Comes with example case data - perfect to understand the model and start your own WHAT-IF study case
 
 ## The decision support tool
 
