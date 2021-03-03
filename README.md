@@ -34,7 +34,7 @@ Check the [wiki page](https://github.com/RaphaelPB/WHAT-IF/wiki) for all detaile
 * [Creating, running and comparing scenarios](https://github.com/RaphaelPB/WHAT-IF/wiki/Creating,-running-and-comparing-scenarios) 
 * and many more...
 
-## Branches
+## Model versions (/branches)
 If you look for a specific version of the model (eventually corresponding to a specific paper/study case), change the branch
 * **Master** is the main branch containing the most recent public model developments and a synthetic data case to understand the model
 * **[HESS_zambezi](https://github.com/RaphaelPB/WHAT-IF/tree/HESS_Zambezi)** is the model as published in [HESS](https://www.hydrol-earth-syst-sci-discuss.net/hess-2019-167/) with the Zambezi dataset
