@@ -61,6 +61,7 @@ class Database():
                              index_col=list(range(Index)), usecols=OnlyCols, engine='openpyxl')
         #frame data depending on type (info,columns,or matrix)
         if DataType==0: #Info data
+            self.info={}
             for k in Data.axes[1]:
                 self.info[k]=Data.to_dict()[k]
             for k in range(Index):
@@ -157,16 +158,15 @@ class Database():
                 self.info['Header'][k]=int(self.info['Header'][k]) #how many rows to jump to data
                 self.info['DataType'][k]=int(self.info['DataType'][k]) #matricx or columns
                 if '.csv' in self.info['SheetName'][k]: #Data is provided as csv file and not in excel
-                #sheetname is csv sheet, all other parameters work the same as in excel files
                     self.csv[self.info['SheetName'][k]]={key:self.info[key][k] 
-                                                         for key in self.info.keys}
+                                                         for key in self.info.keys() if key!='nsheet'}
                     if 'Onlyscen' not in self.info.keys():
-                        self.csv[self.info['SheetName'][k]]['Onlyscen']=None
+                        self.csv[self.info['SheetName'][k]]['OnlyScen']=None
                             # 'Index':self.info['Index'][k],
                             # 'Update':self.info['Update'][k],
                             # 'DataType':self.info['DataType'][k],
                             # 'Scenario':self.info['Scenario'][k],
-                            # 'OnlyScen':self.info['Onlyscen'][k] if 'Onlyscen' in self.info.keys() else None,
+                            # 'OnlyScen':self.info['OnlyScen'][k] if 'OnlyScen' in self.info.keys() else None,
                             # 'MatrixName':self.info['MatrixName'][k],
                             # 'ColIndexName':self.info['ColIndexName'][k],
                             # 'MultiIndexName':self.info['MultiIndexName'][k]}
