@@ -160,7 +160,7 @@ class Database():
                 if '.csv' in self.info['SheetName'][k]: #Data is provided as csv file and not in excel
                     self.csv[self.info['SheetName'][k]]={key:self.info[key][k] 
                                                          for key in self.info.keys() if key!='nsheet'}
-                    if 'Onlyscen' not in self.info.keys():
+                    if 'OnlyScen' not in self.info.keys():
                         self.csv[self.info['SheetName'][k]]['OnlyScen']=None
                             # 'Index':self.info['Index'][k],
                             # 'Update':self.info['Update'][k],
