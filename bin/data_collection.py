@@ -19,25 +19,28 @@ import pandas as pd
 import pickle
 import locale
 #set decimal and separator (for handling of csv files)
+#the automatic set up of decimals seems to not work from servers
 langlocale = locale.getdefaultlocale()[0]
 locale.setlocale(locale.LC_ALL, langlocale)
-CSVDECIMAL = ','#locale.localeconv()['decimal_point']
+CSVDECIMAL = locale.localeconv()['decimal_point']
 CSVSEPARATOR = ','
 if CSVDECIMAL == ',':
     CSVSEPARATOR = ';'
     
 class Database():   
-            
+    #Object containing all model parameters, collected from excel and csv files        
     def __init__(self,update=0,DataFile=''):    
         if update ==1:
+            #update from an existing data file (and update parameters as indicated in excel info files)
             Data=pickle.load(open(DataFile,"rb"))
-            self.val=Data.val
-            self.info=Data.info
-            self.memo=Data.memo
-            self.scen=Data.scen
-            self.csv={}
-            self.update=1
-        else:    
+            self.val=Data.val #store paraeters
+            self.info=Data.info #store info data (how data is shaped)
+            self.memo=Data.memo #to check consistency between parameters
+            self.scen=Data.scen #store scenarios of data
+            self.csv={} #data to collect fro csv files
+            self.update=1 #update existing object (1) or create new (0)
+        else:
+            #collect all parameters from scratch (csv+xlsx files)
             self.val={}
             self.info={}
             self.memo={}
@@ -49,18 +52,19 @@ class Database():
                       Scenario=None,MultiIndexName=None,MatrixName=None,
                       ColIndexName=None,OnlyCols=None):
         #Harvests one excel sheet, starting at row "Header"
+        #Parameters are collected from excel "info" sheet 
         i0=0 #start index to collect indices
         if Scenario != None and Scenario == Scenario:
-            Index=Index+1
+            Index=Index+1 #add scenario as index
             i0=1#avoids collect scenario index  
         Data = pd.read_excel(Path,sheet_name=SheetName, skiprows=Header, 
-                             index_col=list(range(Index)), usecols=OnlyCols, engine='xlrd')
+                             index_col=list(range(Index)), usecols=OnlyCols, engine='openpyxl')
+        #frame data depending on type (info,columns,or matrix)
         if DataType==0: #Info data
-            #Data.fillna('nan')
             for k in Data.axes[1]:
                 self.info[k]=Data.to_dict()[k]
             for k in range(Index):
-                self.info[Data.index.names[k]]=Data.index.values                        
+                self.info[Data.index.names[k]]=Data.index.values             
         else: #Collect indexes
             self.collect_index_data(Data,Index,SheetName,MultiIndexName,i0=i0)                                        
         if DataType==1: #Classic column data
@@ -69,6 +73,7 @@ class Database():
            self.collect_matrix_data(Data,Scenario,MatrixName,Index,ColIndexName,SheetName)
     
     def collect_index_data(self,Data,Index,SheetName,MultiIndexName,i0=0):
+        #collect indexes
         if Index==1:
             self._check_coherence(Data.index.name,Data.index.values,SheetName)
             self.val[Data.index.name]=Data.index.values
@@ -82,15 +87,18 @@ class Database():
                 self.val[MultiIndexName]=Data.index.values
                     
     def collect_column_data(self,Data,Scenario,onlyscen=0):
+        #collect column shaped data (first column(s) are indexes, next are parameters)
         if Scenario != None and Scenario == Scenario: #if data has scenario, scenario is as separate index
             for k in Data.axes[1]:
                 tempdic={}
                 scens=Data.index.levels[0].values
                 for scen in scens:
                     if onlyscen==0 or scen==onlyscen:
-                        if '*' in str(scen): #the scenario is an update
+                        if '*' in str(scen): 
+                            #scenario is an update, name has the form "scenup*scenor"
                             scenup,scenor=scen.split('*')
-                            if scenor.isdigit() and scenor not in scens: #specific case where the scenario indicator is a number
+                            #specific case where the scenario indicator is a number
+                            if scenor.isdigit() and scenor not in scens: 
                                 scenor=int(scenor)
                             #extract reference scenario
                             val=Data[k].xs(scenor,level=0).to_dict()
@@ -107,8 +115,8 @@ class Database():
                     
     def collect_matrix_data(self,Data,Scenario,MatrixName,Index,ColIndexName,
                             SheetName,onlyscen=0):
-    #Collect matrix data
-        #drop "wrong" columns 
+    #Collect matrix shaped data, rows and columns are indexes of a single parameter
+        #drop "wrong" columns (happens if there is extra text in the excel sheet) 
         todrop=[col for col in Data.columns if type(col) is str and 'Unnamed:' in col]
         Data=Data.drop(todrop,axis=1)
         if Scenario != None and Scenario == Scenario:
@@ -116,7 +124,7 @@ class Database():
             scens=Data.index.levels[0].values
             for scen in scens:
                 if onlyscen==0 or scen==onlyscen:
-                    if '*' in str(scen): #the scenario is an update
+                    if '*' in str(scen): #the scenario is updating another
                         scenup,scenor=scen.split('*') #get original and updated scenario
                         if scenor.isdigit() and scenor not in scens: #specific case where the scenario indicator is a number
                             scenor=int(scenor)
@@ -146,20 +154,24 @@ class Database():
                 if self.info['OnlyCols'][k] != self.info['OnlyCols'][k]: #sign of no value provided
                     self.info['OnlyCols'][k]=None
                 self.info['Index'][k]=int(self.info['Index'][k]) #make sur int options are int
-                self.info['Header'][k]=int(self.info['Header'][k])
-                self.info['DataType'][k]=int(self.info['DataType'][k])
+                self.info['Header'][k]=int(self.info['Header'][k]) #how many rows to jump to data
+                self.info['DataType'][k]=int(self.info['DataType'][k]) #matricx or columns
                 if '.csv' in self.info['SheetName'][k]: #Data is provided as csv file and not in excel
-                    self.csv[self.info['SheetName'][k]]={ #sheetname is csv sheet, all other parameters work the same as in excel files
-                            'Index':self.info['Index'][k],
-                            'Update':self.info['Update'][k],
-                            'DataType':self.info['DataType'][k],
-                            'Scenario':self.info['Scenario'][k],
-                            'OnlyScen':self.info['Onlyscen'][k] if 'Onlyscen' in self.info.keys() else None,
-                            'MatrixName':self.info['MatrixName'][k],
-                            'ColIndexName':self.info['ColIndexName'][k],
-                            'MultiIndexName':self.info['MultiIndexName'][k]}
-                    warning='LOAD CSV: Data will be loaded from '+self.info['SheetName'][k]
-                    print(warning)
+                #sheetname is csv sheet, all other parameters work the same as in excel files
+                    self.csv[self.info['SheetName'][k]]={key:self.info[key][k] 
+                                                         for key in self.info.keys}
+                    if 'Onlyscen' not in self.info.keys():
+                        self.csv[self.info['SheetName'][k]]['Onlyscen']=None
+                            # 'Index':self.info['Index'][k],
+                            # 'Update':self.info['Update'][k],
+                            # 'DataType':self.info['DataType'][k],
+                            # 'Scenario':self.info['Scenario'][k],
+                            # 'OnlyScen':self.info['Onlyscen'][k] if 'Onlyscen' in self.info.keys() else None,
+                            # 'MatrixName':self.info['MatrixName'][k],
+                            # 'ColIndexName':self.info['ColIndexName'][k],
+                            # 'MultiIndexName':self.info['MultiIndexName'][k]}
+                    info='LOAD CSV: Data will be loaded from '+self.info['SheetName'][k]
+                    print(info)
                 else:
                     if self.update==0 or (self.update==1 and self.info['Update'][k]==1):
                         self.harvest_sheet(path,self.info['SheetName'][k], 
@@ -172,8 +184,8 @@ class Database():
                                            ColIndexName=self.info['ColIndexName'][k], 
                                            OnlyCols=self.info['OnlyCols'][k])
                     if self.update==1 and self.info['Update'][k]==0:
-                        warning= 'NOT UPDATED: Sheet "' + self.info['SheetName'][k] +'" was not updated'
-                        print(warning)
+                        info= 'NOT UPDATED: Sheet "' + self.info['SheetName'][k] +'" was not updated'
+                        print(info)
                     
     def _check_coherence(self,index,newvalue,currentsheet):
         #Verifies if an index is already defined, if yes it verifies that it has the same value, indicating for coherence in the data structure
@@ -186,29 +198,12 @@ class Database():
                 print(warning)
                 
     def save(self,DataFile):
+        #Save parameters to a text file (can be directly called by next run)
         pickle.dump(self,open(DataFile,"wb")) #python36
     
-    def load_hydrology(self,datafolder,paths={},scenarios=[]):
-        #this is a specific version of load_csv ... to be removed in the future ?
-        if paths == {}:
-            #default path names
-            paths={'wRunOff':'wRunOff.csv', 'wRainFall':'wRainFall.csv', 'wET0':'wET0.csv'}
-        for param in paths.keys(): #iterate through parameters
-            if param not in self.val.keys():
-                self.val[param]={} #initiate parameter if not existing
-            #load file #WARNING sep and decimal might vary depending on how CSV file was created
-            data = pd.read_csv(os.path.join(datafolder,paths[param]),
-                               sep=CSVSEPARATOR,decimal=CSVDECIMAL,index_col=[0,1])
-            #load scenarios
-            for scen in data.index.levels[0]:
-                if scenarios==[] or scen in scenarios: #only load selected scenarios
-                    self.val[param][scen]={(t,c):data.loc[(scen,t),c] for t in data.loc[scen].index for c in data.loc[scen].columns}
-            #verify if all requested scenarios where found
-            for scen in scenarios:
-                if scen not in self.val[param].keys():
-                    print('WARNING: scenario '+scen+' of parameter '+param+' not found in '+paths[param])
-    
-    def load_csv(self,datafolder,nscenario):        
+    def load_csv(self,datafolder,nscenario):
+        #function called when data is to be load from csv file (when parameter sheet in excel is .csv)
+        #works the same as other parameter, can be columns or matrix        
         for pfile in self.csv.keys(): #iterate through parameters
             opt=self.csv[pfile] #reading options of the csv file
             onlyscen=0
@@ -229,6 +224,8 @@ class Database():
                                          iindex,opt['ColIndexName'],pfile,onlyscen=onlyscen)
         
     def read_param(self,ParamName,option=1,index=0,time='all',scenario='',directparam=0):
+        #reads parameter from database object, main feature is to return empty parameter
+        #if parameter is not collected, and 
         #hard coded growing parameters
         GrowingParameters=['wUserDem',
                            'eEngyDem','eFuelCost','eCO2Val','eCAPEX', 'eOppCost', 'eOppCap',
@@ -288,6 +285,8 @@ class Database():
     
     def read_time(self,scenario):
         #Reads time parameters from options
+        #ROOM for improvment here - a lot of the complexity comes from the MPC
+        #framework that uses the "raw" parameters (e.g. parameters.val[] ...)
         stime=self.val['sOptions'][scenario]
         tini=self.val['Options']['tini',stime]
         tfin=self.val['Options']['tfin',stime]

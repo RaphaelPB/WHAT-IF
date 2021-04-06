@@ -128,10 +128,11 @@ class ResultAnalysis():
         #Length of index function
         def leni(index):
             return max(1,len(index))
+        
         ##SHADOWPRICES##
-        #Water shadowprice
+            #Water shadowprice
         WaterValueShadow        = -sum(md.dual[md.water_waterbalance[t,c]] for t in md.ntime for c in md.ncatch)/(leni(md.ntime)*leni(md.ncatch))
-        #Energy average shadowprice (=market price) per country
+            #Energy average shadowprice (=market price) per country
         if md.Options['Energy market'] == 1: 
             oo['EnergyValue_co'] = {
                 co:-sum(1/md.se.value*md.dual[md.engy_balance[t,pld,pm]]
@@ -146,7 +147,7 @@ class ResultAnalysis():
                 co:-sum(md.eHppVal[hp] for hp in md.nhpp if md.hp_country[hp]==co)
                    /sum(1 for hp in md.nhpp if md.hp_country[hp]==co) 
                 for co in md.ncountry if sum(1 for hp in md.nhpp if md.hp_country[hp]==co) != 0}
-        #Crop average shadowprice (=market price) per country
+            #Crop average shadowprice (=market price) per country
         if md.Options['Crop market'] == 1:
             oo['CropValue_co']   = {
                 co:-sum(1/md.kt_to_Mt*md.dual[md.agr_cropbalance[y,cm,cr]]
@@ -166,6 +167,7 @@ class ResultAnalysis():
         else:
             CropPrice = {(y,fz,cr): md.aFarmVal[y,md.fzone_country[fz],cr] 
                          for cr in md.ncrop for fz in md.nfzone for y in md.nyear}
+        
         ##INVESTMENT DECISIONS##
         if md.Options['Investment module'] in [1,'continuous']:
             tol=0.01 #numerical tolerance to consider investment
@@ -192,16 +194,16 @@ class ResultAnalysis():
                             for y in md.nyear for u in _nuser(co))/leni(md.nyear) for co in md.ncountry}
         
         #Crops
-        #Export benefits
+            #Export benefits
         oo['CropExpBenefit_co'] = {co:sum(md.kt_to_Mt*md.AcTRANS[y,ct,cr].value * -1/md.kt_to_Mt*md.dual[md.agr_cropbalance[y,md.aTransIn[ct],cr]] 
                                     for y in md.nyear for ct in md.nctrans for cr in md.ncrop if md.cmarket_country[md.aTransIn[ct]]==co)/leni(md.nyear) for co in md.ncountry}       
-        #Crop production NET benefit    
+            #Crop production NET benefit    
         FarmBenefits_fz_y       = {fz:{y: sum(md.kt_to_Mt*md.AcPROD[y,fz,cr].value * CropPrice[y,fz,cr] for cr in md.ncrop) #production value
                                             - md.xFzCulCost[y,fz]() #cultivation cost
                                             - (md.xFzIrrCost[y,fz]()+md.xFzPumpCost[y,fz]() if fz in md.nifzone else 0) #irrigation and groundwater cost
                                             for y in md.nyear} 
                                        for fz in md.nfzone}
-        #Consummer and Producer surplus
+            #Consummer and Producer surplus
         oo['AgricultureConsSurplus_co'] = {
                 co:+ sum(md.xCmBen[y,cm]() for y in md.nyear for cm in md.ncmarket if md.cmarket_country[cm]==co)/leni(md.nyear)                    
                    +(sum(-md.dual[md.agr_cropbalance[y,cm,cr]]*md.kt_to_Mt*md.AcSUPPLY[y,cm,cr,cds].value 
@@ -221,50 +223,69 @@ class ResultAnalysis():
                    - sum(+ md.xCmMarkMarg[y,cm]()+ md.xCmTransCost[y,cm]()+ md.xCmProdCost[y,cm]()
                          for y in md.nyear for cm in md.ncmarket if md.cmarket_country[cm]==co)/leni(md.nyear)
                 for co in md.ncountry}    
-    #Balances
+            #Agriculture Balances
         CropBalance_co = {co:+sum(md.xFzBen[y,fz]() - md.xFzCulCost[y,fz]() for y in md.nyear for fz in _nfzone(co))/leni(md.nyear)
                              -sum(md.xFzIrrCost[y,fz]() + md.xFzPumpCost[y,fz]() for y in md.nyear for fz in _nifzone(co))/leni(md.nyear)
                              +sum(md.xCmBen[y,cm]() - md.xCmProdCost[y,cm]() - md.xCmTransCost[y,cm]() -md.xCmMarkMarg[y,cm]() for y in md.nyear for cm in _ncmarket(co))/leni(md.nyear)
                           for co in md.ncountry}
         CropBalance2_co = {co:sum(FarmBenefits_fz_y[fz][y] for fz in md.nfzone for y in md.nyear if md.fzone_country[fz]==co)/leni(md.nyear) for co in md.ncountry}
         
-    #Energy benefits        
-        EnergyBenefit_co    = {co:sum(md.se.value*md.EeSUPPLY[t,pld,pm].value * md.eEngyVal[md.t_month[t],pm] for t in md.ntime for pm in md.npmarket for pld in md.npload if md.pmarket_country[pm]==co)/leni(md.nyear) for co in md.ncountry}            
-        if md.Options['Energy market'] == 0:
-            EnergyBenefit_co ={co:sum(md.se.value*md.EeHPPROD[t,pld,hp].value * md.eHppVal[hp] for t in md.ntime for pld in md.npload for hp in md.nhpp if md.hp_country[hp]==co)/leni(md.nyear) for co in md.ncountry}
-    #Energy import/export (rem: if 2 power markets are in the same country, the transmission will be counted as export and import - does not affect the balance)
-        EnergyImpCost_co    = {co:sum(md.se.value*md.EeTRANS[t,pld,tl].value * -1/md.se.value*md.dual[md.engy_balance[t,pld,md.eTransIn[tl]]] for t in md.ntime for pld in md.npload for tl in md.ntransline if md.pmarket_country[md.eTransOut[tl]]==co)/leni(md.nyear) for co in md.ncountry}
-        EnergyExpBenefit_co = {co:sum(md.se.value*md.EeTRANS[t,pld,tl].value * -1/md.se.value*md.dual[md.engy_balance[t,pld,md.eTransIn[tl]]] for t in md.ntime for pld in md.npload for tl in md.ntransline if md.pmarket_country[md.eTransIn[tl]]==co)/leni(md.nyear) for co in md.ncountry}
-        oo['EnergyExports_co']={co:sum(md.se.value*md.EeTRANS[t,pld,tl].value                                                    for t in md.ntime for pld in md.npload for tl in md.ntransline if md.pmarket_country[md.eTransIn[tl]]==co)/leni(md.nyear) for co in md.ncountry}
-    #Energy transmission costs
-        EnergyTransCost_co  = {co:sum(md.se.value*md.EeTRANS[t,pld,tl].value * md.eTransCost[tl] for t in md.ntime for pld in md.npload for tl in md.ntransline if md.pmarket_country[md.eTransOut[tl]]==co)/leni(md.nyear) for co in md.ncountry}
-    #Operation costs of hydropower plants        
-        HpOMCost_co         = {co:sum(md.se.value*md.EeHPPROD[t,pld,hp].value * md.eHppCost[hp] for t in md.ntime for pld in md.npload for hp in md.nhpp if md.hp_country[hp]==co)/leni(md.nyear) for co in md.ncountry}
-    #Operation and fuel costs of other power plants                     
-        OppOMCost_co        = {co:sum(md.se.value*md.EeOPPROD[t,pld,pp].value * md.eOppCost[md.t_year[t],pp] for t in md.ntime for pld in md.npload for pp in md.nopp if md.pmarket_country[md.op_pmarket[pp]]==co)/leni(md.nyear) for co in md.ncountry}                                                                  
-        OppFuelCost_co      = {co:sum(md.se.value*md.EeOPPROD[t,pld,pp].value/md.eOppEff[pp]*md.eFuelCost[md.t_year[t],md.op_pmarket[pp],fu] for t in md.ntime for pld in md.npload for pp in md.nopp for fu in md.nfuel if md.op_fuel[pp]==fu and md.pmarket_country[md.op_pmarket[pp]]==co)/leni(md.nyear) for co in md.ncountry}                 
-        OppCO2Cost_co       = {co:sum(md.se.value*md.EeOPPROD[t,pld,pp].value/md.eOppEff[pp]*md.eFuelCO2[fu]*md.eCO2Val[md.t_year[t],md.op_pmarket[pp]] for t in md.ntime for pld in md.npload for pp in md.nopp for fu in md.nfuel if md.op_fuel[pp]==fu and md.pmarket_country[md.op_pmarket[pp]]==co)/leni(md.nyear) for co in md.ncountry}
-        oo['CO2Emission_co'] = {co:sum(md.se.value*md.EeOPPROD[t,pld,pp].value/md.eOppEff[pp]*md.eFuelCO2[fu]                                 for t in md.ntime for pld in md.npload for pp in md.nopp for fu in md.nfuel if md.op_fuel[pp]==fu and md.pmarket_country[md.op_pmarket[pp]]==co)/leni(md.nyear) for co in md.ncountry}                             
-    #Capacity, Operation and fuel costs of generic power technologies 
-        GenCapCost_co       = {co:sum(md.se.value*md.EeGENCAP[y,pt,pm].value*md.eCAPEX[y,pt,pm]*min(1,(md.t_year[md.Options['tfin']]-y+1)/md.eLifeTime[pt,pm]) + sum(md.se.value*md.EeGENCAP[ky,pt,pm].value for ky in md.nyear if ky <= y and ky >= y-md.eLifeTime[pt,pm])*md.eFixOPEX[pt,pm] for y in md.nyear for pt in md.nptech for pm in md.npmarket if md.pmarket_country[pm]==co)/leni(md.nyear) for co in md.ncountry} 
-        GenProdCost_co      = {co:sum(md.se.value*md.EeGENPROD[t,pld,pt,pm].value*md.eVarOPEX[pt,pm] for t in md.ntime for pld in md.npload for pt in md.nptech for pm in md.npmarket if md.pmarket_country[pm]==co)/leni(md.nyear) for co in md.ncountry}                                                              
-        GenFuelCost_co      = {co:sum(md.se.value*md.EeGENPROD[t,pld,pt,pm].value/md.eTechEff[pt,pm]*md.eFuelCost[md.t_year[t],pm,fu]            for t in md.ntime for pld in md.npload for pt in md.nptech for pm in md.npmarket for fu in md.nfuel if md.ptech_fuel[pt,pm]==fu and md.pmarket_country[pm]==co)/leni(md.nyear) for co in md.ncountry}  
-        GenCO2Cost_co       = {co:sum(md.se.value*md.EeGENPROD[t,pld,pt,pm].value/md.eTechEff[pt,pm]*md.eFuelCO2[fu]*md.eCO2Val[md.t_year[t],pm] for t in md.ntime for pld in md.npload for pt in md.nptech for pm in md.npmarket for fu in md.nfuel if md.ptech_fuel[pt,pm]==fu and md.pmarket_country[pm]==co)/leni(md.nyear) for co in md.ncountry} 
-        oo['CO2Emission_co'] = {co:oo['CO2Emission_co'][co]+sum(md.se.value*md.EeGENPROD[t,pld,pt,pm].value/md.eTechEff[pt,pm]*md.eFuelCO2[fu]     for t in md.ntime for pld in md.npload for pt in md.nptech for pm in md.npmarket for fu in md.nfuel if md.ptech_fuel[pt,pm]==fu and md.pmarket_country[pm]==co)/leni(md.nyear) for co in md.ncountry}     
-    #CONSUMER AND PRODUCER SURPLUS 
-        oo['EnergyConsSurplus_co']  = {co:sum(md.se.value*md.EeSUPPLY[t,pld,pm].value * (md.eEngyVal[md.t_month[t],pm] - -1/md.se.value*md.dual[md.engy_balance[t,pld,pm]]/(1-md.eSupLoss[pm]))
-                                      for t in md.ntime for pm in md.npmarket for pld in md.npload if md.pmarket_country[pm]==co)/leni(md.nyear) 
-                                   for co in md.ncountry}
-        oo['EnergyProdSurplus_co']  = {co: sum(md.se.value*md.EeHPPROD[t,pld,hp].value * (-1/md.se.value*md.dual[md.engy_balance[t,pld,md.hp_pmarket[hp]]] if md.Options['Energy market'] == 1 else md.eHppVal[hp]) for t in md.ntime for pld in md.npload for hp in md.nhpp if md.hp_country[hp]==co)/leni(md.nyear) 
-                                    + sum(md.se.value*md.EeOPPROD[t,pld,pp].value * (-1/md.se.value*md.dual[md.engy_balance[t,pld,md.op_pmarket[pp]]]) for t in md.ntime for pld in md.npload for pp in md.nopp if md.pmarket_country[md.op_pmarket[pp]]==co)/leni(md.nyear) 
-                                    + sum(md.se.value*md.EeGENPROD[t,pld,pt,pm].value * (-1/md.se.value*md.dual[md.engy_balance[t,pld,pm]]) for t in md.ntime for pld in md.npload for pt in md.nptech for pm in md.npmarket if md.pmarket_country[pm]==co)/leni(md.nyear)
-                                    - HpOMCost_co[co] 
-                                    - OppOMCost_co[co] - OppFuelCost_co[co] - OppCO2Cost_co[co] 
-                                    - GenCapCost_co[co] - GenProdCost_co[co] - GenFuelCost_co[co] - GenCO2Cost_co[co]
-                                   for co in md.ncountry}
-    #Balances
-        EngyBalance_co      = {co:EnergyBenefit_co[co] + EnergyExpBenefit_co[co] - GenCapCost_co[co] - GenProdCost_co[co] - GenFuelCost_co[co] - GenCO2Cost_co[co]
-                                - EnergyImpCost_co[co] - OppFuelCost_co[co] - OppCO2Cost_co[co] - HpOMCost_co[co] - OppOMCost_co[co] - EnergyTransCost_co[co] for co in md.ncountry}        
+        #Energy       
+            #Energy import/export (rem: if 2 power markets are in the same country, the transmission will be counted as export and import - does not affect the balance)
+        EnergyExpBenefit_co = {co:sum(md.se.value*md.EeTRANS[t,pld,tl].value
+                                      *-1/md.se.value*md.dual[md.engy_balance[t,pld,md.eTransIn[tl]]] 
+                                      for t in md.ntime for pld in md.npload for tl in md.ntransline 
+                                      if md.pmarket_country[md.eTransIn[tl]]==co)/leni(md.nyear) 
+                               for co in md.ncountry}
+        oo['EnergyExports_co']={co:sum(md.se.value*md.EeTRANS[t,pld,tl].value 
+                                       for t in md.ntime for pld in md.npload for tl in md.ntransline 
+                                       if md.pmarket_country[md.eTransIn[tl]]==co)/leni(md.nyear) 
+                                for co in md.ncountry}
+            #Operation and fuel costs of other power plants                     
+        oo['CO2Emission_co'] = {co:sum(md.se.value*md.EeOPPROD[t,pld,pp].value/md.eOppEff[pp]*md.eFuelCO2[fu] 
+                                       for t in md.ntime for pld in md.npload for pp in md.nopp for fu in md.nfuel 
+                                       if md.op_fuel[pp]==fu and md.pmarket_country[md.op_pmarket[pp]]==co)/leni(md.nyear) 
+                                for co in md.ncountry}                             
+            #Capacity, Operation and fuel costs of generic power technologies 
+        oo['CO2Emission_co'] = {co:oo['CO2Emission_co'][co]
+                                   +sum(md.se.value*md.EeGENPROD[t,pld,pt,pm].value/md.eTechEff[pt,pm]*md.eFuelCO2[fu]     
+                                        for t in md.ntime for pld in md.npload for pt in md.nptech for pm in md.npmarket for fu in md.nfuel 
+                                        if md.ptech_fuel[pt,pm]==fu and md.pmarket_country[pm]==co)/leni(md.nyear) 
+                                for co in md.ncountry}     
+            #Consummer and Producer surplus 
+        oo['EnergyConsSurplus_co']  = {
+            co:sum(md.se.value*md.EeSUPPLY[t,pld,pm].value 
+                   *(md.eEngyVal[md.t_month[t],pm] - -1/md.se.value*md.dual[md.engy_balance[t,pld,pm]]/(1-md.eSupLoss[pm]))
+                   for t in md.ntime for pm in md.npmarket for pld in md.npload 
+                   if md.pmarket_country[pm]==co)/leni(md.nyear) 
+            for co in md.ncountry}
+        oo['EnergyProdSurplus_co']  = {
+            co: +sum(md.se.value*md.EeHPPROD[t,pld,hp].value 
+                     *(-1/md.se.value*md.dual[md.engy_balance[t,pld,md.hp_pmarket[hp]]] 
+                       if md.Options['Energy market'] == 1 else md.eHppVal[hp]) 
+                     for t in md.ntime for pld in md.npload for hp in md.nhpp 
+                     if md.hp_country[hp]==co)/leni(md.nyear) 
+                +sum(md.se.value*md.EeOPPROD[t,pld,pp].value * (-1/md.se.value*md.dual[md.engy_balance[t,pld,md.op_pmarket[pp]]]) 
+                     for t in md.ntime for pld in md.npload for pp in md.nopp 
+                     if md.pmarket_country[md.op_pmarket[pp]]==co)/leni(md.nyear) 
+                +sum(md.se.value*md.EeGENPROD[t,pld,pt,pm].value * (-1/md.se.value*md.dual[md.engy_balance[t,pld,pm]]) 
+                     for t in md.ntime for pld in md.npload for pt in md.nptech for pm in md.npmarket 
+                     if md.pmarket_country[pm]==co)/leni(md.nyear)
+                -sum(md.xHpProdCost[y,hp]() for y in md.nyear for hp in md.nhpp if md.hp_country[hp]==co)/leni(md.nyear)
+                -sum(md.xOppProdCost[y,pm]() + md.xOppFuelCost[y,pm]() + md.xOppCO2Cost[y,pm]() 
+                     +md.xGenProdCost[y,pm]() + md.xGenFuelCost[y,pm]() + md.xGenCO2Cost[y,pm]()
+                     +md.xGenCapCost[y,pm]() + md.xPmTransCost[y,pm]()
+                     for y in md.nyear for pm in md.npmarket if md.pmarket_country[pm]==co)/leni(md.nyear)
+            for co in md.ncountry}
+        
+        #Balances
+        EngyBalance_co = {co:+sum(+md.xPmBen[y,pm]() - md.xGenCapCost[y,pm]() - md.xPmTransCost[y,pm]()
+                                 -md.xGenProdCost[y,pm]() - md.xGenFuelCost[y,pm]() - md.xGenCO2Cost[y,pm]() 
+                                 -md.xOppProdCost[y,pm]() - md.xOppFuelCost[y,pm]() - md.xOppCO2Cost[y,pm]()
+                                  for y in md.nyear for pm in md.npmarket if md.pmarket_country[pm]==co)/leni(md.nyear)
+                             -sum(md.xHpProdCost[y,hp]() 
+                                  for y in md.nyear for hp in md.nhpp if md.hp_country[hp]==co)/leni(md.nyear)
+                          for co in md.ncountry}        
         
         EconomicBalance     = (+sum(WaterBalance_co[co] for co in md.ncountry) 
                                +sum(CropBalance_co[co] for co in md.ncountry) 
@@ -364,17 +385,17 @@ class ResultAnalysis():
             ' Crop Ext Prod Cost [M$/year]':sum(md.xCmProdCost[idx]() for idx in md.xCmProdCost)/leni(md.nyear),
             ' Crop Trans Cost [M$/year]':   sum(md.xCmTransCost[idx]() for idx in md.xCmTransCost)/leni(md.nyear),
             ' Crop Marketing Cost [M$/year]':   sum(md.xCmMarkMarg[idx]() for idx in md.xCmMarkMarg)/leni(md.nyear),
-            ' Energy Supply Benefit [M$/year]': sum(EnergyBenefit_co[co] for co in md.ncountry),
-            ' Energy Gen Cap Cost [M$/year]':   sum(GenCapCost_co[co] for co in md.ncountry),
-            ' Energy Gen Prod Cost [M$/year]':  sum(GenProdCost_co[co] for co in md.ncountry),
-            ' Energy Gen Fuel Cost [M$/year]':  sum(GenFuelCost_co[co] for co in md.ncountry),
-            ' Energy Gen CO2 Cost [M$/year]':   sum(GenCO2Cost_co[co] for co in md.ncountry),
-            ' Energy Opp Fuel Cost [M$/year]':  sum(OppFuelCost_co[co] for co in md.ncountry),
-            ' Energy Opp OetM Cost [M$/year]':  sum(OppOMCost_co[co] for co in md.ncountry),                                
-            ' Energy Opp CO2 Cost [M$/year]':   sum(OppCO2Cost_co[co] for co in md.ncountry),                                
-            ' Energy Hpp OetM Cost [M$/year]':  sum(HpOMCost_co[co] for co in md.ncountry),
-            ' Energy Trans Cost [M$/year]':     sum(EnergyTransCost_co[co] for co in md.ncountry),
-            ' jActivity Prod Cost [M$/year]':   sum(ActivityBlance_co[co] for co in md.ncountry),
+            ' Energy Supply Benefit [M$/year]': sum(md.xPmBen[idx]() for idx in md.xPmBen)/leni(md.nyear),
+            ' Energy Gen Cap Cost [M$/year]':   sum(md.xGenCapCost[idx]() for idx in md.xGenCapCost)/leni(md.nyear),
+            ' Energy Gen Prod Cost [M$/year]':  sum(md.xGenProdCost[idx]() for idx in md.xGenProdCost)/leni(md.nyear),
+            ' Energy Gen Fuel Cost [M$/year]':  sum(md.xGenFuelCost[idx]() for idx in md.xGenFuelCost)/leni(md.nyear),
+            ' Energy Gen CO2 Cost [M$/year]':   sum(md.xGenCO2Cost[idx]() for idx in md.xGenCO2Cost)/leni(md.nyear),
+            ' Energy Opp Fuel Cost [M$/year]':  sum(md.xOppFuelCost[idx]() for idx in md.xOppFuelCost)/leni(md.nyear),
+            ' Energy Opp OetM Cost [M$/year]':  sum(md.xOppProdCost[idx]() for idx in md.xOppProdCost)/leni(md.nyear),                              
+            ' Energy Opp CO2 Cost [M$/year]':   sum(md.xOppCO2Cost[idx]() for idx in md.xOppCO2Cost)/leni(md.nyear),                                
+            ' Energy Hpp OetM Cost [M$/year]':  sum(md.xHpProdCost[idx]() for idx in md.xHpProdCost)/leni(md.nyear),
+            ' Energy Trans Cost [M$/year]':     sum(md.xPmTransCost[idx]() for idx in md.xPmTransCost)/leni(md.nyear),
+            ' jActivity Prod Cost [M$/year]':   sum(-md.xActBen[idx]() for idx in md.xActBen)/leni(md.nyear),
             ' Investments NODISCOUNT [M$/year]':sum(-InvestBalance_co[co] for co in md.ncountry)
             } 
         oo['Options']={key:md.Options[key] for key in md.Options}
@@ -386,11 +407,7 @@ class ResultAnalysis():
         #Read parameters function #warning: does not read growing parameters
         def read(name,time='all',option=1,index=0):
             return parameters.read_param(name,scenario=scenario)
-#        def read(ParamName):
-#            if ParamName in parameters.scen.keys():                
-#                return parameters.val[ParamName][parameters.val[parameters.scen[ParamName]][scenario]]
-#            else:
-#                return parameters.val[ParamName]
+
 #MAIN
     # Optimization Parameters
         solvetime=solverstatus.solver.Time if 'Time' in dir(solverstatus.solver) else ''
@@ -912,6 +929,10 @@ class ResultAnalysis():
         _nfzone=lambda co:[fz for fz in md.nfzone if md.fzone_country[fz]==co]
         _nifzone=lambda co:[fz for fz in md.nifzone if md.fzone_country[fz]==co]
         _ncmarket=lambda co:[cm for cm in md.ncmarket if md.cmarket_country[cm]==co]
+        _nhpp=lambda co:[hp for hp in md.nhpp if md.hp_country[hp]==co]
+        _npmarket=lambda co:[pm for pm in md.npmarket if md.pmarket_country[pm]==co]
+        _njactivity=lambda co:[j for j in md.njactivity if md.j_country[j]==co]
+        
         def _to_dic(varname,index):
             var=md.find_component(varname)
             return {y:{co:sum(var[y,i]() for i in index(co)) for co in md.ncountry} for y in md.nyear}
@@ -929,35 +950,52 @@ class ResultAnalysis():
         'Crop transport costs [M$]': _to_dic('xCmTransCost',_ncmarket),
         'Crop ext prod costs [M$]': _to_dic('xCmProdCost',_ncmarket),
         'Crop benefits [M$]': _to_dic('xFzBen',_nfzone) if md.Options['Crop market'] == 0 else _to_dic('xCmBen',_ncmarket),
-        'Crop import costs [M$]': {y:{co:sum(md.kt_to_Mt*md.AcTRANS[y,ct,cr].value * -1/md.kt_to_Mt*md.dual[md.agr_cropbalance[y,md.aTransIn[ct],cr]] 
-                                    for ct in md.nctrans for cr in md.ncrop if md.cmarket_country[md.aTransOut[ct]]==co) for co in md.ncountry} for y in md.nyear},
-        'Crop export benefits [M$]': {y:{co:sum(md.kt_to_Mt*md.AcTRANS[y,ct,cr].value * -1/md.kt_to_Mt*md.dual[md.agr_cropbalance[y,md.aTransIn[ct],cr]] 
-                                    for ct in md.nctrans for cr in md.ncrop if md.cmarket_country[md.aTransIn[ct]]==co) for co in md.ncountry} for y in md.nyear},                                                
+        'Crop import costs [M$]': {y:{co:sum(md.kt_to_Mt*md.AcTRANS[y,ct,cr].value 
+                                             *-1/md.kt_to_Mt*md.dual[md.agr_cropbalance[y,md.aTransIn[ct],cr]] 
+                                             for ct in md.nctrans for cr in md.ncrop 
+                                             if md.cmarket_country[md.aTransOut[ct]]==co) 
+                                      for co in md.ncountry} for y in md.nyear},
+        'Crop export benefits [M$]': {y:{co:sum(md.kt_to_Mt*md.AcTRANS[y,ct,cr].value 
+                                                *-1/md.kt_to_Mt*md.dual[md.agr_cropbalance[y,md.aTransIn[ct],cr]] 
+                                                for ct in md.nctrans for cr in md.ncrop 
+                                                if md.cmarket_country[md.aTransIn[ct]]==co) 
+                                         for co in md.ncountry} for y in md.nyear},                                                
         #Energy markets
-        'Energy import costs [M$]':     {y:{co:sum(md.se.value*md.EeTRANS[t,pld,tl].value * -1/md.se.value*md.dual[md.engy_balance[t,pld,md.eTransIn[tl]]] for t in md.ntime for pld in md.npload for tl in md.ntransline if md.pmarket_country[md.eTransOut[tl]]==co and md.t_year[t]==y) for co in md.ncountry} for y in md.nyear},
-        'Energy export benefits [M$]':  {y:{co:sum(md.se.value*md.EeTRANS[t,pld,tl].value * -1/md.se.value*md.dual[md.engy_balance[t,pld,md.eTransIn[tl]]] for t in md.ntime for pld in md.npload for tl in md.ntransline if md.pmarket_country[md.eTransIn[tl]]==co  and md.t_year[t]==y) for co in md.ncountry} for y in md.nyear},
-        'Energy trans costs [M$]':      {y:{co:sum(md.se.value*md.EeTRANS[t,pld,tl].value * md.eTransCost[tl] for t in md.ntime for pld in md.npload for tl in md.ntransline if md.pmarket_country[md.eTransOut[tl]]==co and md.t_year[t]==y) for co in md.ncountry} for y in md.nyear},
-        'Energy hydro O&M costs [M$]':  {y:{co:sum(md.se.value*md.EeHPPROD[t,pld,hp].value * md.eHppCost[hp] for t in md.ntime for pld in md.npload for hp in md.nhpp if md.hp_country[hp]==co and md.t_year[t]==y) for co in md.ncountry} for y in md.nyear},
-        'Energy curtailment costs [M$]':{y:{co:sum(md.eEngyVal[md.t_month[t],pm]*(md.eEngyDem[md.t_year[t],md.t_month[t],pm]-sum(md.se.value*md.EeSUPPLY[t,pld,pm].value for pld in md.npload)) for t in md.ntime for pm in md.npmarket if md.pmarket_country[pm]==co and md.t_year[t]==y) for co in md.ncountry} for y in md.nyear},
-        #Other power plants
-        'Energy power O&M costs [M$]':  {y:{co:sum(md.se.value*md.EeOPPROD[t,pld,pp].value*md.eOppCost[y,pp] for t in md.ntime for pld in md.npload for pp in md.nopp if md.pmarket_country[md.op_pmarket[pp]]==co and md.t_year[t]==y) for co in md.ncountry} for y in md.nyear},
-        'Energy fuel costs [M$]':       {y:{co:sum(md.se.value*md.EeOPPROD[t,pld,pp].value/md.eOppEff[pp]*md.eFuelCost[y,md.op_pmarket[pp],fu] for t in md.ntime for pld in md.npload for pp in md.nopp for fu in md.nfuel if md.op_fuel[pp]==fu and md.pmarket_country[md.op_pmarket[pp]]==co and md.t_year[t]==y) for co in md.ncountry} for y in md.nyear},
-        #Generic power technologies
-        'Energy Gen power O&M costs [M$]':{y:{co:sum(md.se.value*md.EeGENPROD[t,pld,pt,pm].value*md.eVarOPEX[pt,pm] for t in md.ntime for pld in md.npload for pm in md.npmarket for pt in md.nptech if md.pmarket_country[pm]==co and md.t_year[t]==y) for co in md.ncountry} for y in md.nyear},
-        'Energy Gen cap costs [M$]':    {y:{co:sum(md.se.value*md.EeGENCAP[y,pt,pm].value*md.eCAPEX[y,pt,pm]*min(1,(md.t_year[md.Options['tfin']]-y+1)/md.eLifeTime[pt,pm]) + sum(md.se.value*md.EeGENCAP[ky,pt,pm].value for ky in md.nyear if ky <= y and ky >= y-md.eLifeTime[pt,pm])*md.eFixOPEX[pt,pm] for pm in md.npmarket for pt in md.nptech if md.pmarket_country[pm]==co) for co in md.ncountry} for y in md.nyear},
-        'Energy Gen fuel costs [M$]':   {y:{co:sum(md.se.value*md.EeGENPROD[t,pld,pt,pm].value/md.eTechEff[pt,pm]*md.eFuelCost[y,pm,fu] for t in md.ntime for pld in md.npload for pm in md.npmarket for pt in md.nptech for fu in md.nfuel if md.ptech_fuel[pt,pm]==fu and md.pmarket_country[pm]==co and md.t_year[t]==y) for co in md.ncountry} for y in md.nyear},                 
-        #CO2 emissions
-        'Energy CO2 costs [M$]':        {y:{co:+sum(md.se.value*md.EeGENPROD[t,pld,pt,pm].value/md.eTechEff[pt,pm]*md.eFuelCO2[fu]*md.eCO2Val[y,pm] for t in md.ntime for pld in md.npload for pm in md.npmarket for pt in md.nptech for fu in md.nfuel if md.ptech_fuel[pt,pm]==fu and md.pmarket_country[pm]==co and md.t_year[t]==y)
-                                               +sum(md.se.value*md.EeOPPROD[t,pld,pp].value/md.eOppEff[pp]*md.eFuelCO2[fu]*md.eCO2Val[y,md.op_pmarket[pp]] for t in md.ntime for pld in md.npload for pp in md.nopp for fu in md.nfuel if md.op_fuel[pp]==fu and md.pmarket_country[md.op_pmarket[pp]]==co and md.t_year[t]==y)
+        'Energy import costs [M$]':     {y:{co:sum(md.se.value*md.EeTRANS[t,pld,tl].value 
+                                                   *-1/md.se.value*md.dual[md.engy_balance[t,pld,md.eTransIn[tl]]] 
+                                                   for t in md.ntime for pld in md.npload for tl in md.ntransline 
+                                                   if md.pmarket_country[md.eTransOut[tl]]==co and md.t_year[t]==y) 
                                             for co in md.ncountry} for y in md.nyear},
-        'Energy benefits [M$]':         {y:{co:sum(md.se.value*md.EeSUPPLY[t,pld,pm].value * md.eEngyVal[md.t_month[t],pm] for t in md.ntime for pld in md.npload for pm in md.npmarket if md.pmarket_country[pm]==co and md.t_year[t]==y) for co in md.ncountry} for y in md.nyear}
+        'Energy export benefits [M$]':  {y:{co:sum(md.se.value*md.EeTRANS[t,pld,tl].value 
+                                                   *-1/md.se.value*md.dual[md.engy_balance[t,pld,md.eTransIn[tl]]] 
+                                                   for t in md.ntime for pld in md.npload for tl in md.ntransline 
+                                                   if md.pmarket_country[md.eTransIn[tl]]==co  and md.t_year[t]==y) 
+                                            for co in md.ncountry} for y in md.nyear},
+        'Energy trans costs [M$]':      _to_dic('xPmTransCost',_npmarket),
+        'Energy hydro O&M costs [M$]':  _to_dic('xHpProdCost',_nhpp),
+        'Energy curtailment costs [M$]':{y:{co:sum(md.eEngyVal[md.t_month[t],pm]
+                                                   *(md.eEngyDem[md.t_year[t],md.t_month[t],pm]
+                                                     -sum(md.se.value*md.EeSUPPLY[t,pld,pm].value for pld in md.npload)) 
+                                                   for t in md.ntime for pm in md.npmarket 
+                                                   if md.pmarket_country[pm]==co and md.t_year[t]==y) 
+                                            for co in md.ncountry} for y in md.nyear},
+        #Other power plants
+        'Energy power O&M costs [M$]':  _to_dic('xOppProdCost',_npmarket),
+        'Energy fuel costs [M$]':       _to_dic('xOppFuelCost',_npmarket),
+        #Generic power technologies
+        'Energy Gen power O&M costs [M$]':_to_dic('xGenProdCost',_npmarket),
+        'Energy Gen cap costs [M$]':    _to_dic('xGenCapCost',_npmarket),
+        'Energy Gen fuel costs [M$]':   _to_dic('xGenFuelCost',_npmarket),
+        #CO2 emissions
+        'Energy CO2 costs [M$]':        {y:{co:sum(+md.xGenCO2Cost[y,pm]() + md.xOppCO2Cost[y,pm]()
+                                                   for pm in md.npmarket if md.pmarket_country[pm]==co)
+                                            for co in md.ncountry} for y in md.nyear},
+        'Energy benefits [M$]':         _to_dic('xPmBen',_npmarket),
                                         }
         if md.Options['Energy market'] == 0:
-            oo['EconomicBalance_y_co']['Energy benefits [M$]']   = {y:{co: sum(md.se.value*md.EeHPPROD[t,pld,hp].value*(md.eHppVal[hp]-md.eHppCost[hp]) for t in md.ntime for pld in md.npload for hp in md.nhpp if md.hp_country[hp]==co and md.t_year[t]==y) for co in md.ncountry} for y in md.nyear}
+            oo['EconomicBalance_y_co']['Energy benefits [M$]'] = _to_dic('xHpBen',_nhpp)
         #Activities
-        oo['EconomicBalance_y_co']['jActivity Blance [M$]'] = {y: {co: -sum(md.JjPROD[t,j].value*md.jProdCost[j] for j in md.njactivity for t in md.ntime 
-                                                                            if md.j_country[j]==co and md.t_year[t]==y)
-                                                                   for co in md.ncountry} for y in md.nyear}        
+        oo['EconomicBalance_y_co']['jActivity Blance [M$]'] = _to_dic('xActBen',_njactivity)       
         oo['EconomicBalance_y_co']['Investment CAPEX [M$]'] = {y: {co: md.xInvCAPEX[y]()/leni(md.ncountry) 
                                                                     for co in md.ncountry} for y in md.nyear}
         oo['EconomicBalance_y_co']['Investment fix OPEX [M$]'] = {y: {co: md.xInvFixOPEX[y]()/leni(md.ncountry) 
@@ -980,7 +1018,6 @@ class ResultAnalysis():
             + oo['EconomicBalance_y_co']['Energy export benefits [M$]'][y][co]
             - oo['EconomicBalance_y_co']['Energy trans costs [M$]'][y][co]     
             - oo['EconomicBalance_y_co']['Energy hydro O&M costs [M$]'][y][co]  
-            #- oo['EconomicBalance_y_co']['Energy curtailment costs [M$]'][y][co]    #it would be double counting to count curtailment costs
             - oo['EconomicBalance_y_co']['Energy power O&M costs [M$]'][y][co]     
             - oo['EconomicBalance_y_co']['Energy fuel costs [M$]'][y][co]      
             - oo['EconomicBalance_y_co']['Energy Gen power O&M costs [M$]'][y][co]   
@@ -992,20 +1029,36 @@ class ResultAnalysis():
             - oo['EconomicBalance_y_co']['Investment fix OPEX [M$]'][y][co]            
                                                             for co in md.ncountry} for y in md.nyear}
         #Balance at other levels
-        oo['EconomicBalance']      = {keys:     sum(oo['EconomicBalance_y_co'][keys][y][co] for y in md.nyear for co in md.ncountry)/leni(md.nyear) for keys in oo['EconomicBalance_y_co'].keys()}
-        oo['EconomicBalance_co']   = {keys: {co:sum(oo['EconomicBalance_y_co'][keys][y][co] for y in md.nyear)/leni(md.nyear) for co in md.ncountry} for keys in oo['EconomicBalance_y_co'].keys()}
-        oo['EconomicBalance_y']    = {keys: {y :sum(oo['EconomicBalance_y_co'][keys][y][co] for co in md.ncountry) for y in md.nyear} for keys in oo['EconomicBalance_y_co'].keys()}
+        oo['EconomicBalance']      = {keys:     sum(oo['EconomicBalance_y_co'][keys][y][co] 
+                                                    for y in md.nyear for co in md.ncountry)/leni(md.nyear) 
+                                      for keys in oo['EconomicBalance_y_co'].keys()}
+        oo['EconomicBalance_co']   = {keys: {co:sum(oo['EconomicBalance_y_co'][keys][y][co] 
+                                                    for y in md.nyear)/leni(md.nyear) for co in md.ncountry} 
+                                      for keys in oo['EconomicBalance_y_co'].keys()}
+        oo['EconomicBalance_y']    = {keys: {y :sum(oo['EconomicBalance_y_co'][keys][y][co] 
+                                                    for co in md.ncountry) for y in md.nyear} 
+                                      for keys in oo['EconomicBalance_y_co'].keys()}
 
-        oo['EconomicBalance_ca']={'User benefits [M$]':           {c:sum(md.WwSUPPLY[t,u].value*md.wUserVal[u] for t in md.ntime for u in md.nuser if md.user_catch[u]==c)/leni(md.nyear) for c in md.ncatch},
-                                 'Water supply costs [M$]':      {c:sum(md.WwSUPPLY[t,u].value/(1-md.wUserLoss[u]) * md.wSupCost[u] for t in md.ntime for u in md.nuser if md.user_catch[u]==c)/leni(md.nyear) for c in md.ncatch},                                  
-                                 'Crop cultivation costs [M$]':  {c:sum(md.kha_to_Mha*md.xCULAREA[y,fz,cul]() * md.aCulCost[md.fzone_type[fz],cul] for y in md.nyear for fz in md.nfzone for cul in md.nculture if md.fzone_catch[fz]==c)/leni(md.nyear)     for c in md.ncatch}, 
-                                 'Crop irrigation costs [M$]':   {c:sum(md.AwSUPPLY[t,fz,cul].value * md.aIrrgCost[fz] for t in md.ntime for fz in md.nifzone for cul in md.nculture if md.fzone_catch[fz]==c)/leni(md.nyear)      for c in md.ncatch}}
+        oo['EconomicBalance_ca']={
+            'User benefits [M$]':         {c:sum(md.xUserBen[y,u]() for y in md.nyear for u in md.nuser 
+                                                 if md.user_catch[u]==c)/leni(md.nyear) for c in md.ncatch},
+            'Water supply costs [M$]':    {c:sum(md.xUserSupCost[y,u]() for y in md.nyear for u in md.nuser 
+                                                 if md.user_catch[u]==c)/leni(md.nyear) for c in md.ncatch},                                  
+            'Crop cultivation costs [M$]':{c:sum(md.xFzCulCost[y,fz]() for y in md.nyear for fz in md.nfzone 
+                                                 if md.fzone_catch[fz]==c)/leni(md.nyear) for c in md.ncatch}, 
+            'Crop irrigation costs [M$]': {c:sum(md.xFzIrrCost[y,fz]() for y in md.nyear for fz in md.nifzone 
+                                                 if md.fzone_catch[fz]==c)/leni(md.nyear) for c in md.ncatch}}
+        
         if md.Options['Crop market'] == 0:
-            oo['EconomicBalance_ca']['Crop benefits [M$]']           = {c:sum(md.kt_to_Mt*md.AcPROD[y,fz,cr].value * md.aFarmVal[y,md.fzone_country[fz],cr] for y in md.nyear for fz in md.nfzone for cr in md.ncrop if md.fzone_catch[fz]==c)/leni(md.nyear) for c in md.ncatch}
+            oo['EconomicBalance_ca']['Crop benefits [M$]'] = {c:sum(md.xFzBen[y,fz]() for y in md.nyear for fz in md.nfzone 
+                                                                    if md.fzone_catch[fz]==c)/leni(md.nyear) for c in md.ncatch}
 
-        oo['EconomicBalance_ca']['Crop groundwater costs [M$]']      = {c:sum(md.AwGWSUPPLY[t,fz,cul].value * md.wGwCost[md.fzone_catch[fz]]  for t in md.ntime for fz in md.nifzone for cul in md.nculture for aq in md.naquifer if md.fzone_catch[fz]==md.aqui_catch[aq])/leni(md.nyear) for c in md.ncatch}
+        oo['EconomicBalance_ca']['Crop groundwater costs [M$]'] = {c:sum(md.xFzPumpCost[y,fz]() for y in md.nyear for fz in md.nifzone for aq in md.naquifer 
+                                                                         if md.fzone_catch[fz]==md.aqui_catch[aq]==c)/leni(md.nyear) for c in md.ncatch}
         if md.Options['Energy market'] == 0:
-            oo['EconomicBalance_ca']['Energy benefits [M$]']         = {c:sum(md.se.value*md.EeHPPROD[t,pld,hp].value*(md.eHppVal[hp]-md.eHppCost[hp]) for t in md.ntime for pld in md.npload for hp in md.nhpp if md.hp_catch[hp]==c)/leni(md.nyear) for c in md.ncatch} 
+            oo['EconomicBalance_ca']['Energy benefits [M$]'] = {c:sum(md.se.value*md.EeHPPROD[t,pld,hp].value*(md.eHppVal[hp]-md.eHppCost[hp]) 
+                                                                      for t in md.ntime for pld in md.npload for hp in md.nhpp 
+                                                                      if md.hp_catch[hp]==c)/leni(md.nyear) for c in md.ncatch} 
         #%%PRINTS    
         if PRINT==1:
             print('*************ECONOMIC*************')
@@ -1046,17 +1099,28 @@ class ResultAnalysis():
             
 #%% ACTIVITIES
         oo['jActivity Table']={
-            'Activity prod [u/y]':  {j:sum(md.JjPROD[t,j].value for t in md.ntime)/leni(md.nyear) for j in md.njactivity},
-            'Activity capacity [u/y]':{j:sum(md.jProdCap[j] for t in md.ntime)/leni(md.nyear) for j in md.njactivity},
-            'Economic balance [M$/y]':{j:sum(-md.JjPROD[t,j].value*md.jProdCost[j] for t in md.ntime)/leni(md.nyear) for j in md.njactivity},
-            'Land Cons [kha/y]':    {j:sum(md.JjPROD[t,j].value*md.jLandCons[j] for t in md.ntime)/leni(md.nyear) for j in md.njactivity},
-            'Water Cons [Mm3/y]':   {j:sum(md.JjPROD[t,j].value*md.jWatCons[j]  for t in md.ntime)/leni(md.nyear) for j in md.njactivity},
-            'Energy Cons [Gwh/y]':  {j:sum(md.JjPROD[t,j].value*md.jPowCons[j]  for t in md.ntime)/leni(md.nyear) for j in md.njactivity},
-            'Crop Cons [kt/y]':     {j:sum(md.JjPROD[t,j].value*md.jCropCons[j] for t in md.ntime)/leni(md.nyear) for j in md.njactivity},
-            'Land Prod [kha/y]':    {j:sum(md.JjPROD[t,j].value*md.jLandProd[j] for t in md.ntime)/leni(md.nyear) for j in md.njactivity},
-            'Water Prod [Mm3/y]':   {j:sum(md.JjPROD[t,j].value*md.jWatProd[j]  for t in md.ntime)/leni(md.nyear) for j in md.njactivity},
-            'Energy Prod [Gwh/y]':  {j:sum(md.JjPROD[t,j].value*md.jPowProd[j]  for t in md.ntime)/leni(md.nyear) for j in md.njactivity},
-            'Crop Prod [kt/y]':     {j:sum(md.JjPROD[t,j].value*md.jCropProd[j] for t in md.ntime)/leni(md.nyear) for j in md.njactivity}
+            'Activity prod [u/y]':  {j:sum(md.JjPROD[t,j].value 
+                                           for t in md.ntime)/leni(md.nyear) for j in md.njactivity},
+            'Activity capacity [u/y]':{j:sum(md.jProdCap[j] 
+                                             for t in md.ntime)/leni(md.nyear) for j in md.njactivity},
+            'Economic balance [M$/y]':{j:sum(-md.JjPROD[t,j].value*md.jProdCost[j] 
+                                             for t in md.ntime)/leni(md.nyear) for j in md.njactivity},
+            'Land Cons [kha/y]':    {j:sum(md.JjPROD[t,j].value*md.jLandCons[j] 
+                                           for t in md.ntime)/leni(md.nyear) for j in md.njactivity},
+            'Water Cons [Mm3/y]':   {j:sum(md.JjPROD[t,j].value*md.jWatCons[j]  
+                                           for t in md.ntime)/leni(md.nyear) for j in md.njactivity},
+            'Energy Cons [Gwh/y]':  {j:sum(md.JjPROD[t,j].value*md.jPowCons[j]  
+                                           for t in md.ntime)/leni(md.nyear) for j in md.njactivity},
+            'Crop Cons [kt/y]':     {j:sum(md.JjPROD[t,j].value*md.jCropCons[j] 
+                                           for t in md.ntime)/leni(md.nyear) for j in md.njactivity},
+            'Land Prod [kha/y]':    {j:sum(md.JjPROD[t,j].value*md.jLandProd[j] 
+                                           for t in md.ntime)/leni(md.nyear) for j in md.njactivity},
+            'Water Prod [Mm3/y]':   {j:sum(md.JjPROD[t,j].value*md.jWatProd[j]  
+                                           for t in md.ntime)/leni(md.nyear) for j in md.njactivity},
+            'Energy Prod [Gwh/y]':  {j:sum(md.JjPROD[t,j].value*md.jPowProd[j]  
+                                           for t in md.ntime)/leni(md.nyear) for j in md.njactivity},
+            'Crop Prod [kt/y]':     {j:sum(md.JjPROD[t,j].value*md.jCropProd[j] 
+                                           for t in md.ntime)/leni(md.nyear) for j in md.njactivity}
                                 }
         
         oo['jActivity_t']={t:{j:md.JjPROD[t,j].value for j in md.njactivity} for t in md.ntime}
@@ -1114,7 +1178,7 @@ class ResultAnalysis():
             oo['DebugEflow'] = {t:{ef:md.DUMYEFLOW[t,ef].value for ef in md.neflow} for t in md.ntime}
         if md.Options['Debug mode'] == 1:
             oo['DebugWater'] = {t:{c:md.DUMYWATER[t,c].value for c in md.ncatch} for t in md.ntime}        
-#%% VALIDATION - #ADD THIS SECTION IS SPECIFIC TO ZAMBEZI STUDY CASE !!!!! (SO FAR)
+#%% VALIDATION - #ADD THIS SECTION IS SPECIFIC TO ZAMBEZI STUDY CASE !!!!! (SO FAR - TO BE DEVELOPED)
         if VALIDATION == 1:
             oo['WaterAbs_fz']    = {'Sim Consumption [Mm3/y]':{fz:oo['FarmZonesTable']['Irrig net abstraction [Mm3/y]'][fz] for fz in md.nifzone},
                                   'Obs Consumption [Mm3/y]':{fz:read('ObsWaterCons')[fz] for fz in md.nifzone}}
@@ -1200,7 +1264,9 @@ class ResultAnalysis():
 
         filename= scenario+'_Balances.txt'
         pickle.dump(Balances,open(os.path.join(expfolder,filename),"wb"))
-#%%EXPORT RESULT FUNCTIONS    
+
+##EXPORT RESULT FUNCTIONS## 
+#%%Export sheet   
     def exportsheet(self,writer,sheet,data,title,dataref=[],index=[],order={},total={},color={},cols=1,srowi=5,scoli=0,distance=4,nested=0):    
         scol=scoli
         srow=srowi
@@ -1256,7 +1322,8 @@ class ResultAnalysis():
             else:
                 scol = scol + pdata.shape[1] + distance
                 rowjump=max(rowjump,len(pdata))
-#%%
+
+#%% Export all sheets to excel
     def export_to_excel(self,oo,exppath,VALIDATION=0,NEWSHEET=1):
         ## oo = output from function read_results (processed results from model)
         ## exppath = path of the excel file to export to
@@ -1295,13 +1362,27 @@ class ResultAnalysis():
         #ENERGY
         if oo['Options']['Energy market'] == 1:
             #ADD: if power tech not on some variables not defined
-            data=[oo['EnergyBalance'],oo['EnergyBalance_co'],oo['EnergyBalance_ca'],oo['EnergyBalance_m'],oo['EnergyBalance_y'],oo['EnergyVal_pm_m'], oo['PowerGenCap_pt_pm'], oo['PowerGenProd_pt_pm'], oo['PowerGenCap_pt_y'], oo['PowerGenProd_pt_y']]
-            title=['ENERGY BALANCE' ,'ENERGY BALANCE'     ,'ENERGY BALANCE'     ,'ENERGY BALANCE'    ,'ENERGY BALANCE'    ,'EneryShadowprice [$/kWh]', 'Generic capacity invest [MW]', 'Generic capacity prod [GWh/year]','Generic capacity invest [MW]', 'Generic capacity prod [GWh/year]']
+            data=[oo['EnergyBalance'],oo['EnergyBalance_co'],oo['EnergyBalance_ca'],
+                  oo['EnergyBalance_m'],oo['EnergyBalance_y'],oo['EnergyVal_pm_m'],
+                  oo['PowerGenCap_pt_pm'], oo['PowerGenProd_pt_pm'], oo['PowerGenCap_pt_y'], 
+                  oo['PowerGenProd_pt_y']]
+            title=['ENERGY BALANCE','ENERGY BALANCE','ENERGY BALANCE',
+                   'ENERGY BALANCE','ENERGY BALANCE','EneryShadowprice [$/kWh]', 
+                   'Generic capacity invest [MW]','Generic capacity prod [GWh/year]','Generic capacity invest [MW]', 
+                   'Generic capacity prod [GWh/year]']
             self.exportsheet(writer,'Energy',data,title,index=[0,1,2,3,4,5],order={3:months,5:months},total={3:1})
         
         #CROPS
-        data=[oo['CropBalance_y'], oo['CropPrice_cr_y'],oo['CropPrice_cr_cm'],oo['CropProduction_cr_co'],oo['LandUse_cr_co'],oo['CropImpShare_cr_co'], oo['CropExtProd_cr_co'], oo['LandUse_cr_y'],oo['LandUse_co_ft'],oo['LandUse_cr_ft'],oo['CropTransport_cm_cm'], oo['CropLoss_cm_cm'], oo['CropTransport_ct_cr']]
-        title=['Crop Balance','Crop Price [$/t]','Crop Price [$/t]','Crop Production [kt/y]','Land Use [kha]','Crop Import Share [%ofDemand]','Crop external production [kt/y]','Land Use [kha]','Land Use [kha]','Land Use [kha]','Crop Transport [kt/y]', 'Crop Transport losses[kt/y]', 'Crop transport [kt/y]']
+        data=[oo['CropBalance_y'], oo['CropPrice_cr_y'],oo['CropPrice_cr_cm'],
+              oo['CropProduction_cr_co'],oo['LandUse_cr_co'],oo['CropImpShare_cr_co'], 
+              oo['CropExtProd_cr_co'], oo['LandUse_cr_y'],oo['LandUse_co_ft'],
+              oo['LandUse_cr_ft'],oo['CropTransport_cm_cm'],oo['CropLoss_cm_cm'], 
+              oo['CropTransport_ct_cr']]
+        title=['Crop Balance','Crop Price [$/t]','Crop Price [$/t]',
+               'Crop Production [kt/y]','Land Use [kha]','Crop Import Share [%ofDemand]',
+               'Crop external production [kt/y]','Land Use [kha]','Land Use [kha]',
+               'Land Use [kha]','Crop Transport [kt/y]', 'Crop Transport losses[kt/y]', 
+               'Crop transport [kt/y]']
         self.exportsheet(writer,'Crops',data,title)
         #LAND USE
         #ADD PUT ALL LAND USE OUTPUTS HERE
@@ -1324,11 +1405,16 @@ class ResultAnalysis():
         
         #GROUNDWATER
         if oo['Options']['Groundwater']==1:
-            self.exportsheet(writer,'Groundwater',[oo['GwStor_c_m'],oo['GwStor_c_t']],['Groundwater storage [Mm3]','Groundwater storage [Mm3]'],order={0:months})
+            self.exportsheet(writer,'Groundwater',
+                             [oo['GwStor_c_m'],oo['GwStor_c_t']],
+                             ['Groundwater storage [Mm3]','Groundwater storage [Mm3]'],
+                             order={0:months})
         
         #HYDROPOWER
-        data=[oo['HydropowerTable'],oo['HpProd_hp_m'],oo['HpStor_hp_m'],oo['HpDis_hp_m'],oo['HpProd_hp_y'],oo['HpBenefits_hp_y']]
-        title=['Hydropower','Power production [GWh]','Storage* [Mm3]','Discharge [Mm3]','Power production [GWh/y]', 'Net Benefits* [M$/year]']
+        data=[oo['HydropowerTable'],oo['HpProd_hp_m'],oo['HpStor_hp_m'],
+              oo['HpDis_hp_m'],oo['HpProd_hp_y'],oo['HpBenefits_hp_y']]
+        title=['Hydropower','Power production [GWh]','Storage* [Mm3]',
+               'Discharge [Mm3]','Power production [GWh/y]', 'Net Benefits* [M$/year]']
         self.exportsheet(writer,'Hydropower',data,title,order={1:months,2:months,3:months},total={1:2,3:2,4:2,5:2})
         
         #ENVIRONMENTAL FLOWS
@@ -1351,26 +1437,38 @@ class ResultAnalysis():
 
         
         #MAIN + DEBUG
-        self.exportsheet(writer,'Main',[oo['MainTable'],oo['Options'],oo['Debug'],oo['DebugWater'],oo['DebugCrop'],oo['DebugEflow']],['Configurations','Options','Debug','DebugWater','DebugCrop','DebugEflow'],index=[0,1,2,3])
+        self.exportsheet(writer,'Main',
+                         [oo['MainTable'],oo['Options'],oo['Debug'],oo['DebugWater'],oo['DebugCrop'],oo['DebugEflow']],
+                         ['Configurations','Options','Debug','DebugWater','DebugCrop','DebugEflow'],
+                         index=[0,1,2,3])
         
         #VALIDATION
         if VALIDATION == 1:
-            data=[oo['WaterAbs_fz'], oo['WaterAbs_co'], oo['CropProduction_cr_co'], oo['ObsCropProd_cr_co'], oo['CropValue_co'], oo['Hydropower_hp'], oo['EnergyImExp_co']]
-            title=['Water Abstraction', 'Water Abstraction', 'Sim Crop production [kt/y]', 'Obs Crop production [kt/y]', 'Value of crop Prod [M$/y]', 'Hydropower', 'Energy']
+            data=[oo['WaterAbs_fz'], oo['WaterAbs_co'], oo['CropProduction_cr_co'], 
+                  oo['ObsCropProd_cr_co'], oo['CropValue_co'], oo['Hydropower_hp'], 
+                  oo['EnergyImExp_co']]
+            title=['Water Abstraction', 'Water Abstraction', 'Sim Crop production [kt/y]', 
+                   'Obs Crop production [kt/y]', 'Value of crop Prod [M$/y]', 'Hydropower', 
+                   'Energy']
             self.exportsheet(writer,'Validation',data,title,total={0:0,1:0,2:0,3:0,4:0,5:0,6:0})
         
         #YEARLY TRENDS
-        self.exportsheet(writer,'YearlyTrends',[oo['YearlyEnergy'],oo['YearlyProd'],oo['YearlyCapacity'],oo['YearlyCrop'],oo['YearlyWater']],['Yearly Trends','Yearly production','Yearly Capacity','Yearly Crop','Yearly Water'],cols=3)
+        self.exportsheet(writer,'YearlyTrends',
+                         [oo['YearlyEnergy'],oo['YearlyProd'],oo['YearlyCapacity'],oo['YearlyCrop'],oo['YearlyWater']],
+                         ['Yearly Trends','Yearly production','Yearly Capacity','Yearly Crop','Yearly Water'],
+                         cols=3)
         
         #ECONOMICS
         self.exportsheet(writer,'Economics',[oo['EconomicBalance_y']],['Economics'])
         
         #ACTIVITIES
-        self.exportsheet(writer,'Activities',[oo['jActivity Table'],oo['jActivity_t']],['Activities', 'Activities'])
+        self.exportsheet(writer,'Activities',[oo['jActivity Table'],oo['jActivity_t']],
+                         ['Activities', 'Activities'])
         
         #Save excel files
         writer.save()
-#%%
+
+#%% Export scenarios main results in summary excel
     def export_scenario_analysis(self,scenarios,ref_scen,parallelresults,expfolder):
         #Assembles results from different scenarios and exports to excel
         ##scenarios = [scen_1,...,scen_n] list of scenario names
@@ -1385,32 +1483,46 @@ class ResultAnalysis():
                 elist.append(key)        
         elist=set(elist)
         #assemble all elements from parallelresults
-        oo={elem:{scenarios[ss]:parallelresults[ss][elem] for ss in range(len(scenarios)) if elem in parallelresults[ss].keys()} for elem in elist}
+        oo={elem:{scenarios[ss]:parallelresults[ss][elem] for ss in range(len(scenarios)) 
+                  if elem in parallelresults[ss].keys()} for elem in elist}
        
         def RelativeResults(data, ref_scen):
             relresult=[]
             for result in data:       
-                relresult.append({scen+'_'+ref_scen[scen]:{elem:result[scen][elem]-result[ref_scen[scen]][elem] for elem in result[scen].keys() if elem in result[ref_scen[scen]].keys()} for scen in result.keys() if ref_scen[scen] in result.keys()})
+                relresult.append({scen+'_'+ref_scen[scen]:{elem:result[scen][elem]-result[ref_scen[scen]][elem] 
+                                                           for elem in result[scen].keys() 
+                                                           if elem in result[ref_scen[scen]].keys()} 
+                                  for scen in result.keys() if ref_scen[scen] in result.keys()})
             return relresult
         
         ScenarioOutPath = expfolder + os.sep + 'SCENARIOS_compare.xlsx'
         writer = pd.ExcelWriter(ScenarioOutPath, engine='openpyxl') #able to save formulas (graphs die however)
         
         #EconomicBalance
-        data    = [oo['EconomicBalance'],oo['EconomicBalance_co'],oo['WaterEconomicBalance_co'],oo['EnergyEconomicBalance_co'],oo['AgricultureEconomicBalance_co'],oo['AgricultureEconomicBalance2_co'],
-                   oo['AgricultureConsSurplus_co'], oo['AgricultureProdSurplus_co'], oo['EnergyConsSurplus_co'], oo['EnergyProdSurplus_co']]
+        data    = [oo['EconomicBalance'],oo['EconomicBalance_co'],oo['WaterEconomicBalance_co'],
+                   oo['EnergyEconomicBalance_co'],oo['AgricultureEconomicBalance_co'],oo['AgricultureEconomicBalance2_co'],
+                   oo['AgricultureConsSurplus_co'], oo['AgricultureProdSurplus_co'], oo['EnergyConsSurplus_co'], 
+                   oo['EnergyProdSurplus_co']]
         reldata = RelativeResults(data, ref_scen)
-        title   = ['Economic Balance [$]','Economic Balance [$]','Water Economic Balance [$]',' Energy Economic Balance [$]','Agriculture Economic Balance [$]','Agriculture Economic Balance 2[$]',
-                   'Agr cons surplus [$]','Agr prod surplus [$]','Egy cons surplus [$]', 'Egy prod surplus [$]']
+        title   = ['Economic Balance [$]','Economic Balance [$]','Water Economic Balance [$]',
+                   ' Energy Economic Balance [$]','Agriculture Economic Balance [$]','Agriculture Economic Balance 2[$]',
+                   'Agr cons surplus [$]','Agr prod surplus [$]','Egy cons surplus [$]', 
+                   'Egy prod surplus [$]']
         self.exportsheet(writer,'EconomicBalance',data,title)
         self.exportsheet(writer,'RelEconomicBalance',reldata,title)
         
         #Other indicators
-        data    = [oo['OtherIndicators'], oo['HydropowerProduction_co'], oo['EnergyExportBenefit_co'], oo['EnergyExports_co'], oo['GrossCultivatedArea_co'], oo['CropExpBenefit_co'],
-                   oo['NetIrrArea_co'], oo['IrrigNetCons_co'], oo['EnergyCapacityConst_co'], oo['SolarCapacityConst_co'], oo['CO2Emission_co'], oo['EnergyValue_co'], oo['CropValue_co']]
+        data    = [oo['OtherIndicators'], oo['HydropowerProduction_co'], oo['EnergyExportBenefit_co'], 
+                   oo['EnergyExports_co'], oo['GrossCultivatedArea_co'], oo['CropExpBenefit_co'],
+                   oo['NetIrrArea_co'], oo['IrrigNetCons_co'], oo['EnergyCapacityConst_co'], 
+                   oo['SolarCapacityConst_co'], oo['CO2Emission_co'], oo['EnergyValue_co'], 
+                   oo['CropValue_co']]
         reldata = RelativeResults(data, ref_scen)
-        title   = ['Other Indicators','Hydropower Production [kWh/y]','Energy Export benefit [$/y]','Energy Exports [kWh/y]','Gross Cultivated area [ha/y]', 'Crop export benefits [$/y]',
-                   'Net irrigated area [ha/y]','Agricultural water consumption [m3/y]','Additional Power Invest [kWh/month]','Solar Invest [kWh/month]','CO2 emissions [t/y]','Average energy price [$/kWh]','Average crop price [$/t]']
+        title   = ['Other Indicators','Hydropower Production [kWh/y]','Energy Export benefit [$/y]',
+                   'Energy Exports [kWh/y]','Gross Cultivated area [ha/y]', 'Crop export benefits [$/y]',
+                   'Net irrigated area [ha/y]','Agricultural water consumption [m3/y]','Additional Power Invest [kWh/month]',
+                   'Solar Invest [kWh/month]','CO2 emissions [t/y]','Average energy price [$/kWh]',
+                   'Average crop price [$/t]']
         self.exportsheet(writer,'OtherIndicators',data,title)
         self.exportsheet(writer,'RelOtherIndicators',reldata,title)
         

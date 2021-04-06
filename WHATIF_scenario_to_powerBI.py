@@ -87,7 +87,8 @@ def aggregate_scenarios_to_csv(scenarios,vardic,outpath,keytype='tuple',indexnam
         elist=[]
         for scen in scenarios:
             for key in vardic[scen].keys():
-                elist.append(key)        
+                if indexname==0 or key in indexname.keys(): #do not add variable if not in the list
+                    elist.append(key)        
         elist=set(elist)
 
     for elem in elist:
@@ -161,7 +162,7 @@ def aggregate_scenarios_to_csv(scenarios,vardic,outpath,keytype='tuple',indexnam
 #%%#####################################
 #        COLLECT INFORMATION
         
-sceninfo=pd.read_excel(SCENFILE,sheet_name=SHEET, skiprows=1, index_col=[0], engine='xlrd')
+sceninfo=pd.read_excel(SCENFILE,sheet_name=SHEET, skiprows=1, index_col=[0], engine='openpyxl')
 refscen=sceninfo.to_dict()['refscen']
 scenarios=[s for s in refscen.keys()]
 #scen_to_load=[s for s in refscen.keys()]
