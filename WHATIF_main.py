@@ -40,7 +40,7 @@ UPDATE      = 0 #0 updates all parameters, 1 updates only selected parameters (t
 EXPORT      = 'all' #'all' powerBI files + following, 'xlsx': individual excel files + following, 'txt': selected results + excel of all selected results
 #solver options
 NEOS        = 0# use 1 to use neos server (which avoids you to install the solvers)
-SOLVER      = 'cplex' #'cplex'
+SOLVER      = 'glpk' #'cplex'
 SOLVERPATH  = 0#'/home/software/ipopt/3.12/bin/ipopt'#0# 0 is default, precise path only if required by solver #'~/CoinIpopt/bin/ipopt' #'~/miniconda3/pkgs/ipopt_bin-3.7.1-10/bin/ipopt'#
 
 #%% DEFINE PARAMETERS
