@@ -18,7 +18,7 @@
 """
 
 from pyomo.environ import ConcreteModel, Set, Param, Var, Objective, Constraint, Expression
-from pyomo.environ import NonNegativeReals, Binary, exp, value
+from pyomo.environ import NonNegativeReals, Binary, exp, value, Any, Reals
 #import math
 
 class HydroeconomicOptimization():
@@ -42,7 +42,7 @@ class HydroeconomicOptimization():
         md.noption = Set(initialize=read('noption'))    #Configurations of the model
         Options = {opt:parameters.val['Options'][opt,parameters.val['sOptions'][scenario]] 
                    for opt in md.noption} #Select options of considered scenario
-        md.Options = Param(md.noption, initialize=Options)
+        md.Options = Param(md.noption, initialize=Options, within=Any)
         #time framing
         ttime,t_prev,year=parameters.read_time(scenario)
     #Unit conversion
@@ -54,9 +54,9 @@ class HydroeconomicOptimization():
         md.kt_to_Mt         = 1/1000 # 1000 t = 1/1000 Mt
         md.coolingconstant  = 1.17 # density of water 1000 (kg/m3)* (specific heat coefficient 4200 (J/K/kg) = 0.00117 (kWh/K/kg))
     #Scaling parameters
-        md.debugcost = Param(initialize=100000,mutable=True) #debug cost (variabes units $/m3 - 100$/t)   
-        md.sw = Param(initialize=1000,mutable=True) # Scaling factor for WwRSTORAGE and WwOUTFLOW (1000=convert DV from Mm3 to km3)
-        md.se = Param(initialize=1000,mutable=True) # Scaling factor for all energy decision variables
+        md.debugcost = Param(initialize=100000,mutable=True, within=Reals) #debug cost (variabes units $/m3 - 100$/t)   
+        md.sw = Param(initialize=1000,mutable=True, within=Reals) # Scaling factor for WwRSTORAGE and WwOUTFLOW (1000=convert DV from Mm3 to km3)
+        md.se = Param(initialize=1000,mutable=True, within=Reals) # Scaling factor for all energy decision variables
         
     # OPTIONS UNDER DEVELOPMENT
         ANALYTICAL=1 if 'ANALYTICAL' not in md.Options.keys() else md.Options['ANALYTICAL']
@@ -89,18 +89,19 @@ class HydroeconomicOptimization():
         md.nuser            = Set(initialize=read('user_catch').keys())        #Water Users [indice user] (id)
         md.naquifer         = Set(initialize=read('wGwFlow',option=md.Options['Groundwater']).keys())  #Groundwater aquifers [indice aquifer] (id)           
     #Spatio-Temporal connections
-        md.catch_ds         = Param(md.ncatch, initialize=read('catch_ds'))        #Downstream catchment of catchment [catchment] (id)
-        md.catch_country    = Param(md.ncatch, initialize=read('catch_country'))   #Country of catchment [catchment] (id) #REM: DOES NOT ALWAYS MAKE SENSE
-        md.res_catch        = Param(md.nres,  initialize=read('res_catch'))        #Reservoir's catchment [reservoir] (id)
-        md.user_catch       = Param(md.nuser, initialize=read('user_catch'))       #User's catchment [user] (id)
-        md.user_dscatch     = Param(md.nuser, initialize=read('user_dscatch'))     #User's downstream catchment [user] (id)
-        md.user_country     = Param(md.nuser, initialize=read('user_country'))     #User's country [user] (id)
-        md.t_month          = Param(md.ntime, initialize=read('t_month',time=ttime))#Month of time step [time] (id)
-        md.t_year           = Param(md.ntime, initialize=read('t_year',time=ttime))#Year of time step [time] (id)
-        md.t_prev           = Param(md.ntime, initialize=t_prev)                   #Previous time step [time] (id)       
+        md.catch_ds         = Param(md.ncatch, initialize=read('catch_ds'), within=Any)        #Downstream catchment of catchment [catchment] (id)
+        md.catch_country    = Param(md.ncatch, initialize=read('catch_country'), within=Any)   #Country of catchment [catchment] (id) #REM: DOES NOT ALWAYS MAKE SENSE
+        md.res_catch        = Param(md.nres,  initialize=read('res_catch'), within=Any)        #Reservoir's catchment [reservoir] (id)
+        md.user_catch       = Param(md.nuser, initialize=read('user_catch'), within=Any)       #User's catchment [user] (id)
+        md.user_dscatch     = Param(md.nuser, initialize=read('user_dscatch'), within=Any)     #User's downstream catchment [user] (id)
+        md.user_country     = Param(md.nuser, initialize=read('user_country'), within=Any)     #User's country [user] (id)
+        md.t_month          = Param(md.ntime, initialize=read('t_month',time=ttime), within=Any)#Month of time step [time] (id)
+        md.t_year           = Param(md.ntime, initialize=read('t_year',time=ttime), within=Any)#Year of time step [time] (id)
+        md.t_prev           = Param(md.ntime, initialize=t_prev, within=Any)                   #Previous time step [time] (id)       
             
     #Hydrology
-        #function to calculate average hydrology parameter if option activated
+        #special function to calculate average hydrology parameter if option activated
+        #not used in normally in model
         def hydro_read(name):  
             hparam=read(name,time=ttime)
             if AVERAGEHYDRO == 1:
@@ -117,52 +118,53 @@ class HydroeconomicOptimization():
                                   and md.t_year[t]-ry<=md.t_year[tt]<=md.t_year[t]+ry)
                         for t in md.ntime for c in md.ncatch}
             return hparam
-        md.wRunOff          = Param(md.ntime, md.ncatch, mutable=True, initialize=hydro_read('wRunOff'))    #Runoff [time x catchment] (Mm3/month)
-        md.wRainFall        = Param(md.ntime, md.ncatch, mutable=True, initialize=hydro_read('wRainFall'))        #Precipitation [time x catchment] (mm)
-        md.wET0             = Param(md.ntime, md.ncatch, mutable=True, initialize=hydro_read('wET0'))             #ET0 [time x catchment] (mm)
-        md.wFlowLoss        = Param(md.ncatch, initialize=read('wFlowLoss'))                                #Flow loss [catchment] (-)
+        
+        md.wRunOff          = Param(md.ntime, md.ncatch, mutable=True, initialize=hydro_read('wRunOff'), within=Reals)    #Runoff [time x catchment] (Mm3/month)
+        md.wRainFall        = Param(md.ntime, md.ncatch, mutable=True, initialize=hydro_read('wRainFall'), within=Reals)  #Precipitation [time x catchment] (mm)
+        md.wET0             = Param(md.ntime, md.ncatch, mutable=True, initialize=hydro_read('wET0'), within=Reals)       #ET0 [time x catchment] (mm)
+        md.wFlowLoss        = Param(md.ncatch, initialize=read('wFlowLoss'), within=Reals)                                #Flow loss [catchment] (-)
     #Groundwater
         opt= md.Options['Groundwater']
-        md.wGwRech          = Param(md.ntime, md.naquifer, initialize=read('wGwRech',option=opt,time=ttime))    #Groundwater recharge [time x catchment] (Mm3/month)
-        md.wGwFlow          = Param(md.naquifer, initialize=read('wGwFlow',option=opt))        #Groundwater baseflow coeeficient [catchment] (-)
-        md.wGwIni           = Param(md.naquifer, initialize=read('wGwIni',option=opt))         #Groundwater initial storage (if not cyclic) [catchment] (Mm3)
-        md.wGwCost          = Param(md.naquifer, initialize=read('wGwCost',option=opt))        #Groundwater pumping cost [catchment] ($/m3)
+        md.wGwRech          = Param(md.ntime, md.naquifer, initialize=read('wGwRech',option=opt,time=ttime), within=Reals)    #Groundwater recharge [time x catchment] (Mm3/month)
+        md.wGwFlow          = Param(md.naquifer, initialize=read('wGwFlow',option=opt), within=Reals)        #Groundwater baseflow coeeficient [catchment] (-)
+        md.wGwIni           = Param(md.naquifer, initialize=read('wGwIni',option=opt), within=Reals)         #Groundwater initial storage (if not cyclic) [catchment] (Mm3)
+        md.wGwCost          = Param(md.naquifer, initialize=read('wGwCost',option=opt), within=Reals)        #Groundwater pumping cost [catchment] ($/m3)
     #Water Users
-        md.wUserDem         = Param(md.nyear, md.nmonth, md.nuser, initialize=read('wUserDem',time=md.nyear))#User water demand [year x month x user] (Mm3/month)        
-        md.wUserRturn       = Param(md.nuser, initialize=read('wUserRturn'))                   #Return rate of user water allocation [user] (%)
-        md.wUserLoss        = Param(md.nuser, initialize=read('wUserLoss'))                    #Loss rate of user water allocation [user] (%)
-        md.wUserVal         = Param(md.nuser, initialize=read('wUserVal'))                     #User marginal value for water [user] ($/m3)
-        md.wSupCost         = Param(md.nuser, initialize=read('wSupCost'))                     #Water supply costs [user] ($/m3) 
+        md.wUserDem         = Param(md.nyear, md.nmonth, md.nuser, initialize=read('wUserDem',time=md.nyear), within=Reals)#User water demand [year x month x user] (Mm3/month)        
+        md.wUserRturn       = Param(md.nuser, initialize=read('wUserRturn'), within=Reals)                   #Return rate of user water allocation [user] (%)
+        md.wUserLoss        = Param(md.nuser, initialize=read('wUserLoss'), within=Reals)                    #Loss rate of user water allocation [user] (%)
+        md.wUserVal         = Param(md.nuser, initialize=read('wUserVal'), within=Reals)                     #User marginal value for water [user] ($/m3)
+        md.wSupCost         = Param(md.nuser, initialize=read('wSupCost'), within=Reals)                     #Water supply costs [user] ($/m3) 
     #Reservoirs
-        md.wStorCap         = Param(md.nres, initialize=read('wStorCap'))                      #Storage Capacity [reservoir] (Mm3)
+        md.wStorCap         = Param(md.nres, initialize=read('wStorCap'), within=Reals)                      #Storage Capacity [reservoir] (Mm3)
         if md.Options['Reservoirs'] == 'flood':
-            md.wFloodRule   = Param(md.nres, md.nmonth, initialize=read('wFloodRule'))         #Flood rule curve [reservoir x month] (Mm3)
+            md.wFloodRule   = Param(md.nres, md.nmonth, initialize=read('wFloodRule'), within=Reals)         #Flood rule curve [reservoir x month] (Mm3)
         if md.Options['Initial time step'] == 1:
-            md.wStorIni     = Param(md.nres, mutable=True, initialize=read('wStorIni'))        #Initial storage [reservoir] (Mm3) - only used if initial time step is used
-            md.wStorFin     = Param(md.nres, mutable=True, initialize=read('wStorFin'))        #Final storage [reservoir] (Mm3) - only used if initial time step is used
-        md.wkV              = Param(md.nres, initialize=read('wkV'))                           #Area - volume coef, kV in "A = A0 + kV * V" [reservoir] (ha/m3)
-        md.wResArea         = Param(md.nres, initialize=read('wResArea'))                      #Minimum area, A0 in "A = A0 + kV * V" [reservoir] (Mha)
+            md.wStorIni     = Param(md.nres, mutable=True, initialize=read('wStorIni'), within=Reals)        #Initial storage [reservoir] (Mm3) - only used if initial time step is used
+            md.wStorFin     = Param(md.nres, mutable=True, initialize=read('wStorFin'), within=Reals)        #Final storage [reservoir] (Mm3) - only used if initial time step is used
+        md.wkV              = Param(md.nres, initialize=read('wkV'), within=Reals)                           #Area - volume coef, kV in "A = A0 + kV * V" [reservoir] (ha/m3)
+        md.wResArea         = Param(md.nres, initialize=read('wResArea'), within=Reals)                      #Minimum area, A0 in "A = A0 + kV * V" [reservoir] (Mha)
     #Transfer schemes
         opt= md.Options['Transfers']
         md.ntransfer        = Set(initialize=read('wTransCap',option=opt).keys())              #Transfer schemes [indice transfer] (id)
-        md.transfer_us      = Param(md.ntransfer, initialize=read('transfer_us',option=opt))   #Upstream catchment of transfer scheme [transfer] (id) 
-        md.transfer_ds      = Param(md.ntransfer, initialize=read('transfer_ds',option=opt))   #Downstream catchment of transfer scheme [transfer] (id) 
-        md.wTransCap        = Param(md.ntransfer, initialize=read('wTransCap',option=opt))     #Capacity of transfere scheme [transfer] (Mm3/month)
-        md.wTransLoss       = Param(md.ntransfer, initialize=read('wTransLoss',option=opt))    #Loss rate of transfere scheme [transfer] (%)
+        md.transfer_us      = Param(md.ntransfer, initialize=read('transfer_us',option=opt), within=Any)   #Upstream catchment of transfer scheme [transfer] (id) 
+        md.transfer_ds      = Param(md.ntransfer, initialize=read('transfer_ds',option=opt), within=Any)   #Downstream catchment of transfer scheme [transfer] (id) 
+        md.wTransCap        = Param(md.ntransfer, initialize=read('wTransCap',option=opt), within=Reals)     #Capacity of transfere scheme [transfer] (Mm3/month)
+        md.wTransLoss       = Param(md.ntransfer, initialize=read('wTransLoss',option=opt), within=Reals)    #Loss rate of transfere scheme [transfer] (%)
     #Lakes and wetlands
         opt= md.Options['Lakes']
         md.nlake            = Set(initialize=[res for res in md.nres if read('res_type')[res]=='wetland'] 
                                   if md.Options['Lakes']==1 else []) #Lakes are a sub-ensemble of reservoirs
-        md.res_type         = Param(md.nres,  initialize=read('res_type',option=opt))      #Type of reservoir 'reservoir'=can be controlled [reservoir] (id)
-        md.wAlpha           = Param(md.nres, initialize=read('wAlpha',option=opt))        #First order outflow coefficient Out = alpha * V [lake] (%)
-        md.wkRO             = Param(md.nres, initialize=read('wkRO',option=opt))          #Share of runoff not diverted by wetland [lake] (%)
-        md.wkUP             = Param(md.nres, initialize=read('wkUP',option=opt))          #Share of upstream flow not diverted by wetland [lake] (%)       
+        md.res_type         = Param(md.nres,  initialize=read('res_type',option=opt), within=Any)     #Type of reservoir 'reservoir'=can be controlled [reservoir] (id)
+        md.wAlpha           = Param(md.nres, initialize=read('wAlpha',option=opt), within=Reals)        #First order outflow coefficient Out = alpha * V [lake] (%)
+        md.wkRO             = Param(md.nres, initialize=read('wkRO',option=opt), within=Reals)          #Share of runoff not diverted by wetland [lake] (%)
+        md.wkUP             = Param(md.nres, initialize=read('wkUP',option=opt), within=Reals)          #Share of upstream flow not diverted by wetland [lake] (%)       
         
 #%%**Environmental flow Module**#
         md.neflow           = Set(initialize=read('eflow_catch',option=md.Options['Eflows']).keys())               #Environmental constraint point [indice envconst] (id)
-        md.eflow_catch      = Param(md.neflow, initialize=read('eflow_catch',option=md.Options['Eflows']))         #Catchment of environmental flow constraint [envconst] (id)
-        md.eflow_hard       = Param(md.neflow, initialize=read('eflow_hard',option=md.Options['Eflows']))          #Eflow as hard or soft (limited to actual runoff) constraint [envconst] (binary)
-        md.wEnvFlow         = Param(md.nmonth, md.neflow, initialize=read('wEnvFlow',option=md.Options['Eflows'])) #Env flow [month x envconst] (Mm3/month)
+        md.eflow_catch      = Param(md.neflow, initialize=read('eflow_catch',option=md.Options['Eflows']), within=Any)         #Catchment of environmental flow constraint [envconst] (id)
+        md.eflow_hard       = Param(md.neflow, initialize=read('eflow_hard',option=md.Options['Eflows']), within=Any)          #Eflow as hard or soft (limited to actual runoff) constraint [envconst] (binary)
+        md.wEnvFlow         = Param(md.nmonth, md.neflow, initialize=read('wEnvFlow',option=md.Options['Eflows']), within=Reals) #Env flow [month x envconst] (Mm3/month)
         
         #%%#####################
         #**Agriculture Module**#
@@ -179,34 +181,34 @@ class HydroeconomicOptimization():
         md.nculture         = Set(initialize=read('culture_crop',option=opt).keys()) #Culture -one crop at one time- [indice culture] (id)
         md.nfieldculture    = Set(dimen=2,initialize=read('nfieldculture',option=opt,index=1))#Field [field x culture] [indice field] (id)
     #Spatio-Temporal connections
-        md.fzone_catch      = Param(md.nfzone, initialize=read('fzone_catch',option=opt))                #Farming zones's catchment [fzone] (id)
-        md.fzone_cmarket    = Param(md.nfzone, initialize=read('fzone_cmarket',option=opt))              #Farming zones's crop market [fzone] (id)
-        md.fzone_country    = Param(md.nfzone, initialize=read('fzone_country',option=opt))              #Farming zones's country [fzone] (id)
-        md.fzone_dscatch    = Param(md.nfzone, initialize=read('fzone_dscatch',option=opt))              #Return flow recieving catchment of farming zone [fzone] (id)
-        md.fzone_type       = Param(md.nfzone, initialize=read('fzone_type',option=opt))                 #Farming type of farming zone [fzone] (id)
-        md.field_culture    = Param(md.nfieldculture, initialize=read('field_culture',option=opt))       #Culture of Field [field] (id)
-        md.culture_crop     = Param(md.nculture, initialize=read('culture_crop',option=opt))             #Crop produced by culture [culture] (id) 
-        md.yphase_month     = Param(md.nculture, md.nyphase, md.nmonth, initialize=read('yphase_month',option=opt)) # Phase month matrix, share of each phase in each month [culture x yphase x time]
+        md.fzone_catch      = Param(md.nfzone, initialize=read('fzone_catch',option=opt), within=Any)                #Farming zones's catchment [fzone] (id)
+        md.fzone_cmarket    = Param(md.nfzone, initialize=read('fzone_cmarket',option=opt), within=Any)              #Farming zones's crop market [fzone] (id)
+        md.fzone_country    = Param(md.nfzone, initialize=read('fzone_country',option=opt), within=Any)              #Farming zones's country [fzone] (id)
+        md.fzone_dscatch    = Param(md.nfzone, initialize=read('fzone_dscatch',option=opt), within=Any)              #Return flow recieving catchment of farming zone [fzone] (id)
+        md.fzone_type       = Param(md.nfzone, initialize=read('fzone_type',option=opt), within=Any)                 #Farming type of farming zone [fzone] (id)
+        md.field_culture    = Param(md.nfieldculture, initialize=read('field_culture',option=opt), within=Any)       #Culture of Field [field] (id)
+        md.culture_crop     = Param(md.nculture, initialize=read('culture_crop',option=opt), within=Any)             #Crop produced by culture [culture] (id) 
+        md.yphase_month     = Param(md.nculture, md.nyphase, md.nmonth, initialize=read('yphase_month',option=opt), within=Reals) # Phase month matrix, share of each phase in each month [culture x yphase x time]
     #Farming types
-        md.aCulRturn        = Param(md.nftype, md.nculture, initialize=read('aCulRturn',option=opt))     #Water return rate from allocated [ftype x culture] (%) 
-        md.aCulYield        = Param(md.nyear, md.nftype, md.nculture, initialize=read('aCulYield',option=opt,time=md.nyear))  #Maximum yield of culture [ftype x culture] (t/ha) 
-        md.aCulCost         = Param(md.nftype, md.nculture, initialize=read('aCulCost',option=opt))      #Cultivation cost [ftype x culture] ($/ha)
-        md.aIrrigation      = Param(md.nftype, initialize=read('aIrrigation',option=opt))                #Irrigation (1) or rainfed culture(0) [ftype] (binary) 
+        md.aCulRturn        = Param(md.nftype, md.nculture, initialize=read('aCulRturn',option=opt), within=Reals)     #Water return rate from allocated [ftype x culture] (%) 
+        md.aCulYield        = Param(md.nyear, md.nftype, md.nculture, initialize=read('aCulYield',option=opt,time=md.nyear), within=Reals)  #Maximum yield of culture [ftype x culture] (t/ha) 
+        md.aCulCost         = Param(md.nftype, md.nculture, initialize=read('aCulCost',option=opt), within=Reals)      #Cultivation cost [ftype x culture] ($/ha)
+        md.aIrrigation      = Param(md.nftype, initialize=read('aIrrigation',option=opt), within=Reals)                #Irrigation (1) or rainfed culture(0) [ftype] (binary) 
     #Farming Zones
-        md.aLandCap         = Param(md.nyear, md.nfzone, initialize=read('aLandCap',option=opt,time=md.nyear)) #Land capacity for agriculture [year x fzone] (1000ha)
-        md.aIrrgCost        = Param(md.nfzone, initialize=read('aIrrgCost',option=opt))            #Irrigation cost [fzone] ($/m3)
-        md.aIrrgLoss        = Param(md.nfzone, initialize=read('aIrrgLoss',option=opt))            #Water loss rate from allocated [fzone] (%) 
+        md.aLandCap         = Param(md.nyear, md.nfzone, initialize=read('aLandCap',option=opt,time=md.nyear), within=Reals) #Land capacity for agriculture [year x fzone] (1000ha)
+        md.aIrrgCost        = Param(md.nfzone, initialize=read('aIrrgCost',option=opt), within=Reals)            #Irrigation cost [fzone] ($/m3)
+        md.aIrrgLoss        = Param(md.nfzone, initialize=read('aIrrgLoss',option=opt), within=Reals)            #Water loss rate from allocated [fzone] (%) 
     #Cultures
         if md.Options['KckY farmtype']==1: #Kc and kY are defined per farm type
-            md.akY          = Param(md.nftype, md.nculture, md.nyphase, initialize=read('akY',option=opt))    #crop yield response phase-specific factor [ftype x culture x yphase](%) 
-            md.aKc          = Param(md.nftype, md.nculture, md.nmonth, initialize=read('aKc',option=opt))     #crop water demand factor [ftypex culture x yphase](%) 
+            md.akY          = Param(md.nftype, md.nculture, md.nyphase, initialize=read('akY',option=opt), within=Reals)    #crop yield response phase-specific factor [ftype x culture x yphase](%) 
+            md.aKc          = Param(md.nftype, md.nculture, md.nmonth, initialize=read('aKc',option=opt), within=Reals)     #crop water demand factor [ftypex culture x yphase](%) 
         else:
-            md.akY          = Param(md.nculture, md.nyphase, initialize=read('akY',option=opt))    #crop yield response phase-specific factor [culture x yphase](%) 
-            md.aKc          = Param(md.nculture, md.nmonth, initialize=read('aKc',option=opt))     #crop water demand factor [culture x yphase](%) 
+            md.akY          = Param(md.nculture, md.nyphase, initialize=read('akY',option=opt), within=Reals)    #crop yield response phase-specific factor [culture x yphase](%) 
+            md.aKc          = Param(md.nculture, md.nmonth, initialize=read('aKc',option=opt), within=Reals)     #crop water demand factor [culture x yphase](%) 
         if md.Options['Yield water response'] != 'nonlinear':
-            md.aYieldMat    = Param(md.nypath, md.nyphase, initialize=read('aYieldMat',option=opt))#yield response path matrix [ypath x yphase]
+            md.aYieldMat    = Param(md.nypath, md.nyphase, initialize=read('aYieldMat',option=opt), within=Reals)#yield response path matrix [ypath x yphase]
         if md.Options['Crop choice'] in ('max','once_max'):
-            md.aCulMax      = Param(md.nyear, md.nfzone, md.nculture, initialize=read('aCulMax',option=opt, time=md.nyear)) #Maximum area per culture and farming zone [fzone x culture] (1000ha)
+            md.aCulMax      = Param(md.nyear, md.nfzone, md.nculture, initialize=read('aCulMax',option=opt, time=md.nyear), within=Reals) #Maximum area per culture and farming zone [fzone x culture] (1000ha)
         
         #%%#####################
         #**Crop Market module**#
@@ -215,14 +217,14 @@ class HydroeconomicOptimization():
     #Crop markets and demands
         opt=md.Options['Crop market'] and md.Options['Agriculture']
         md.ncmarket         = Set(initialize=read('cmarket_country',option=opt).keys())                  #Crop markets [indice cmarket] (id)
-        md.cmarket_country  = Param(md.ncmarket, initialize=read('cmarket_country',option=opt))          #Country of Crop Market [cmarket] (id)               
+        md.cmarket_country  = Param(md.ncmarket, initialize=read('cmarket_country',option=opt), within=Any)          #Country of Crop Market [cmarket] (id)               
         md.nextcmarket      = Set(initialize=[cm for cm in md.ncmarket if read('cmarket_type')[cm]=='ExternalMarket']) #External crop markets with a crop supply curve (id)
-        md.aCropDem         = Param(md.nyear, md.ncmarket, md.ncrop, initialize=read('aCropDem',option=opt,time=md.nyear)) #Crop demand [year x cmarket x crop] (1000t/year)
-        md.aCropVal         = Param(md.nyear, md.ncmarket, md.ncrop, initialize=read('aCropVal',option=opt,time=md.nyear))       #Value of crop [cmarket x crop] ($/t)
-        md.aMarkMarg        = Param(md.ncmarket, initialize=read('aMarkMarg',option=opt))                #Marketing margin per market [cmarket] (%of crop production costs)
+        md.aCropDem         = Param(md.nyear, md.ncmarket, md.ncrop, initialize=read('aCropDem',option=opt,time=md.nyear), within=Reals) #Crop demand [year x cmarket x crop] (1000t/year)
+        md.aCropVal         = Param(md.nyear, md.ncmarket, md.ncrop, initialize=read('aCropVal',option=opt,time=md.nyear), within=Reals)       #Value of crop [cmarket x crop] ($/t)
+        md.aMarkMarg        = Param(md.ncmarket, initialize=read('aMarkMarg',option=opt), within=Reals)                #Marketing margin per market [cmarket] (%of crop production costs)
     #Food security
         if md.Options['Minimum supply'] == 1:
-            md.aMinDem      = Param(md.ncmarket, md.ncrop, initialize=read('aMinDem',option=opt))    #Crop minimum demand = food security [year x cmarket x crop] (1000t/year)
+            md.aMinDem      = Param(md.ncmarket, md.ncrop, initialize=read('aMinDem',option=opt), within=Reals)    #Crop minimum demand = food security [year x cmarket x crop] (1000t/year)
     #Crop demand own price elasticity
         if opt and md.Options['Crop demand elasticity'] == 'linearized':   #Parametrization of demand curve according to parameters
             #Demand steps - representing elasticity of crop demand
@@ -235,26 +237,26 @@ class HydroeconomicOptimization():
             aStepVal        = {(cm,cr,cds): max(0,1+(cds-aNumStep)*aStepLen/aNumStep/aDemEla[cm,cr])
                                             if aDemEla[cm,cr] != 0 else 1 
                                 for cds in md.ncdstep for cr in md.ncrop for cm in md.ncmarket}
-            md.aStepDem     = Param(md.ncmarket, md.ncrop, md.ncdstep, initialize=aStepDem)          #Demand share step percentage [cmarket x ncrop x cdstep] (%)
-            md.aStepVal     = Param(md.ncmarket, md.ncrop, md.ncdstep, initialize=aStepVal)          #Demand share sclice marginal value coefficient [cmarket x ncrop x cdstep] (-)                                           
+            md.aStepDem     = Param(md.ncmarket, md.ncrop, md.ncdstep, initialize=aStepDem, within=Reals)          #Demand share step percentage [cmarket x ncrop x cdstep] (%)
+            md.aStepVal     = Param(md.ncmarket, md.ncrop, md.ncdstep, initialize=aStepVal, within=Reals)          #Demand share sclice marginal value coefficient [cmarket x ncrop x cdstep] (-)                                           
         elif opt and md.Options['Crop demand elasticity'] == 'nonlinear': # Value(D) = V0+1/aDemEla*(D-D0)/D0 where D is demand (AcSUPPLY in model)
-            md.aDemEla      = Param(md.ncmarket, md.ncrop, initialize=read('aDemEla'))  #Crop demand elasticity to Own-price %Dchange/%PriceCHange
+            md.aDemEla      = Param(md.ncmarket, md.ncrop, initialize=read('aDemEla'), within=Reals)  #Crop demand elasticity to Own-price %Dchange/%PriceCHange
             md.ncdstep      = Set(initialize=[1])
         else:
             md.ncdstep      = Set(initialize=[1])       #Single demand point
             md.aStepDem     = Param(md.ncmarket, md.ncrop, md.ncdstep, 
-                                    initialize={(cm,cr,1):1 for cr in md.ncrop for cm in md.ncmarket}) #No elasticity in demand
+                                    initialize={(cm,cr,1):1 for cr in md.ncrop for cm in md.ncmarket}, within=Reals) #No elasticity in demand
             md.aStepVal     = Param(md.ncmarket, md.ncrop, md.ncdstep, 
-                                    initialize={(cm,cr,1):1 for cr in md.ncrop for cm in md.ncmarket}) #No elasticity in demand
+                                    initialize={(cm,cr,1):1 for cr in md.ncrop for cm in md.ncmarket}, within=Reals) #No elasticity in demand
     #Crop transport
         opt= opt and md.Options['Crop transport']
         md.nctrans          = Set(initialize=read('aTransLoss',option=opt).keys())                       #Crop transport roads [indice ctrans] (id)
-        md.aTransIn         = Param(md.nctrans, initialize=read('aTransIn',option=opt))                  #Exporting crop market of crop transport road [ctrans] (id) 
-        md.aTransOut        = Param(md.nctrans, initialize=read('aTransOut',option=opt))                 #Importing crop market of crop transport road [ctrans] (id)
-        md.aTransLoss       = Param(md.nctrans, initialize=read('aTransLoss',option=opt))                #Crop transport loss matrix [ctrans] (%)
-        md.aTransCost       = Param(md.nyear, md.nctrans, md.ncrop, initialize=read('aTransCost',option=opt,time=md.nyear))      #Crop transport cost matrix [year x ctrans x crop] ($/t)
+        md.aTransIn         = Param(md.nctrans, initialize=read('aTransIn',option=opt), within=Any)                  #Exporting crop market of crop transport road [ctrans] (id) 
+        md.aTransOut        = Param(md.nctrans, initialize=read('aTransOut',option=opt), within=Any)                 #Importing crop market of crop transport road [ctrans] (id)
+        md.aTransLoss       = Param(md.nctrans, initialize=read('aTransLoss',option=opt), within=Reals)                #Crop transport loss matrix [ctrans] (%)
+        md.aTransCost       = Param(md.nyear, md.nctrans, md.ncrop, initialize=read('aTransCost',option=opt,time=md.nyear), within=Reals)      #Crop transport cost matrix [year x ctrans x crop] ($/t)
         if md.Options['Crop market'] == 0:
-            md.aFarmVal     = Param(md.nyear, md.ncountry, md.ncrop, initialize=read('aFarmVal',option=md.Options['Agriculture'],time=md.nyear))       #Value of crop at farm level [country x crop] ($/t)
+            md.aFarmVal     = Param(md.nyear, md.ncountry, md.ncrop, initialize=read('aFarmVal',option=md.Options['Agriculture'],time=md.nyear), within=Reals)       #Value of crop at farm level [country x crop] ($/t)
         #%%###########################
         #**Energy production Module**#
         ##############################
@@ -262,39 +264,39 @@ class HydroeconomicOptimization():
         opt=md.Options['Energy production'] and md.Options['Hydropower'] in [1,'nonlinear']
     #Hydropower
         md.nhpp             = Set(initialize=read('eHppCap',option=opt).keys())            #HydroPower Plants [indice hpp] (id)  
-        md.hp_res           = Param(md.nhpp, initialize=read('hp_res',option=opt))         #Reservoir of HP turbines [hpp], value='ROR' if Run-Of-the-River HP
-        md.hp_catch         = Param(md.nhpp, initialize=read('hp_catch',option=opt))       #Catchment of Run-Of-the-River HP turbines [hpp]
-        md.hp_pmarket       = Param(md.nhpp, initialize=read('hp_pmarket',option=opt))     #Power pmarket of HP turbines [hpp]
-        md.eHppProd         = Param(md.nhpp, initialize=read('eHppProd',option=opt))       #Production factor: energy produced per water flow of HP [hpp] (kWh/m3)
-        md.eHppCap          = Param(md.nhpp, initialize=read('eHppCap',option=opt))        #Capacity of HP turbines [hpp] (MW)
-        md.eHppEff          = Param(md.nhpp, initialize=read('eHppEff',option=opt))        #Efficiency of HP turbines [hpp] (%)
-        md.eHppCost         = Param(md.nhpp, initialize=read('eHppCost',option=opt))       #Operational production cost of HP [hpp] ($/kWh)
+        md.hp_res           = Param(md.nhpp, initialize=read('hp_res',option=opt), within=Any)         #Reservoir of HP turbines [hpp], value='ROR' if Run-Of-the-River HP
+        md.hp_catch         = Param(md.nhpp, initialize=read('hp_catch',option=opt), within=Any)       #Catchment of Run-Of-the-River HP turbines [hpp]
+        md.hp_pmarket       = Param(md.nhpp, initialize=read('hp_pmarket',option=opt), within=Any)     #Power pmarket of HP turbines [hpp]
+        md.eHppProd         = Param(md.nhpp, initialize=read('eHppProd',option=opt), within=Reals)       #Production factor: energy produced per water flow of HP [hpp] (kWh/m3)
+        md.eHppCap          = Param(md.nhpp, initialize=read('eHppCap',option=opt), within=Reals)        #Capacity of HP turbines [hpp] (MW)
+        md.eHppEff          = Param(md.nhpp, initialize=read('eHppEff',option=opt), within=Reals)        #Efficiency of HP turbines [hpp] (%)
+        md.eHppCost         = Param(md.nhpp, initialize=read('eHppCost',option=opt), within=Reals)       #Operational production cost of HP [hpp] ($/kWh)
     #Power plants and fuels
         opt= md.Options['Energy production'] and md.Options['Power plants']
         md.nopp             = Set(initialize=read('op_pmarket',option=opt).keys())            #Other Power Plants (OPP) [indice opp] (id)
-        md.op_pmarket       = Param(md.nopp, initialize=read('op_pmarket',option=opt))     #pmarket of OPP [opp] (id)
-        md.eOppCost         = Param(md.nyear, md.nopp, initialize=read('eOppCost',option=opt,time=md.nyear)) #Operational production cost of OPP [opp] ($/kWh)
-        md.eOppCap          = Param(md.nyear, md.nopp, initialize=read('eOppCap',option=opt,time=md.nyear))  #Production capacity of OPP [year x opp] (MW)        
+        md.op_pmarket       = Param(md.nopp, initialize=read('op_pmarket',option=opt), within=Any)     #pmarket of OPP [opp] (id)
+        md.eOppCost         = Param(md.nyear, md.nopp, initialize=read('eOppCost',option=opt,time=md.nyear), within=Reals) #Operational production cost of OPP [opp] ($/kWh)
+        md.eOppCap          = Param(md.nyear, md.nopp, initialize=read('eOppCap',option=opt,time=md.nyear), within=Reals)  #Production capacity of OPP [year x opp] (MW)        
         if md.Options['Power technologies'] == 1 or md.Options['Load capacity'] == 1:
-            md.op_ptech     = Param(md.nopp, initialize=read('op_ptech',option=opt))       #Technology of OPP [opp] (id)
+            md.op_ptech     = Param(md.nopp, initialize=read('op_ptech',option=opt), within=Any)       #Technology of OPP [opp] (id)
         if md.Options['Ramping'] == 1:
-            md.eOppRamp     = Param(md.nopp, initialize=read('eOppRamp',option=opt))       #Ramping rate of OPP [opp] (%/load segment) 
+            md.eOppRamp     = Param(md.nopp, initialize=read('eOppRamp',option=opt), within=Reals)       #Ramping rate of OPP [opp] (%/load segment) 
         if md.Options['Fuels'] ==1:
-            md.eOppEff      = Param(md.nopp, initialize=read('eOppEff',option=opt))        #Efficiency of OPP [opp] (kWh_net/kWh_fuel)            
-            md.op_fuel      = Param(md.nopp, initialize=read('op_fuel',option=opt))        #Fuel of OPP [opp] (id)                 
+            md.eOppEff      = Param(md.nopp, initialize=read('eOppEff',option=opt), within=Reals)        #Efficiency of OPP [opp] (kWh_net/kWh_fuel)            
+            md.op_fuel      = Param(md.nopp, initialize=read('op_fuel',option=opt), within=Any)        #Fuel of OPP [opp] (id)                 
         if COOLING == 1:
-            md.op_catch     = Param(md.nopp, initialize=read('op_catch',option=opt))        #Catchment of OPP (id)
-            md.eCoolCoef    = Param(md.nopp, initialize=read('eCoolCoef',option=opt))       #Cooling coefficient (share that is cooled by towers)
-            md.eOppDT       = Param(md.nopp, initialize=read('eOppDT',option=opt))          #Maximum temperature delta in river (K)
+            md.op_catch     = Param(md.nopp, initialize=read('op_catch',option=opt), within=Any)        #Catchment of OPP (id)
+            md.eCoolCoef    = Param(md.nopp, initialize=read('eCoolCoef',option=opt), within=Reals)       #Cooling coefficient (share that is cooled by towers)
+            md.eOppDT       = Param(md.nopp, initialize=read('eOppDT',option=opt), within=Reals)          #Maximum temperature delta in river (K)
 #%% **Non linear hydro-power module**
         if md.Options['Hydropower'] == 'nonlinear' and md.Options['Energy production'] == 1:
-            md.wResMOL      = Param(md.nres, initialize=read('wResMOL'))
-            md.wResFSL      = Param(md.nres, initialize=read('wResFSL'))
-            md.wMinTurb     = Param(md.nhpp, initialize=read('wMinTurb'))
-            md.wMaxTurb     = Param(md.nhpp, initialize=read('wMaxTurb'))
-            md.wMinHead     = Param(md.nres, initialize=read('wMinHead'))
-            md.wMaxHead     = Param(md.nres, initialize=read('wMaxHead'))
-            md.wFixHead     = Param(md.nres, initialize=read('wFixHead'))
+            md.wResMOL      = Param(md.nres, initialize=read('wResMOL'), within=Reals)
+            md.wResFSL      = Param(md.nres, initialize=read('wResFSL'), within=Reals)
+            md.wMinTurb     = Param(md.nhpp, initialize=read('wMinTurb'), within=Reals)
+            md.wMaxTurb     = Param(md.nhpp, initialize=read('wMaxTurb'), within=Reals)
+            md.wMinHead     = Param(md.nres, initialize=read('wMinHead'), within=Reals)
+            md.wMaxHead     = Param(md.nres, initialize=read('wMaxHead'), within=Reals)
+            md.wFixHead     = Param(md.nres, initialize=read('wFixHead'), within=Any)
             #Head-Volume relation (linear assumption)
             def _RelHeadVol(Vol,MOL,FSL,hmin,hmax):                
                 return hmin/hmax + (1-hmin/hmax)*(Vol-MOL)/(FSL-MOL)
@@ -309,79 +311,79 @@ class HydroeconomicOptimization():
         opt=md.Options['Energy production'] and md.Options['Energy market']
     #Power markets - Demands and value
         md.npmarket         = Set(initialize=read('pmarket_country',option=opt).keys())             #pmarkets [indice pmarket] (id)            
-        md.pmarket_country  = Param(md.npmarket, initialize=read('pmarket_country',option=opt))     #Country of pmarket [pmarket] (id)            
-        md.eSupLoss         = Param(md.npmarket, initialize=read('eSupLoss',option=opt))            #Local supply losses of pmarket [pmarket] (-)
-        md.eEngyDem         = Param(md.nyear, md.nmonth, md.npmarket, initialize=read('eEngyDem',option=opt,time=md.nyear))  #Local power demand [month x pmarket] (GWh/year)
-        md.eEngyVal         = Param(md.nmonth, md.npmarket, initialize=read('eEngyVal',option=opt)) #Curtailment cost (=Marginal value) of power [time x pmarket] ($/kWh)           
+        md.pmarket_country  = Param(md.npmarket, initialize=read('pmarket_country',option=opt), within=Any)     #Country of pmarket [pmarket] (id)            
+        md.eSupLoss         = Param(md.npmarket, initialize=read('eSupLoss',option=opt), within=Reals)            #Local supply losses of pmarket [pmarket] (-)
+        md.eEngyDem         = Param(md.nyear, md.nmonth, md.npmarket, initialize=read('eEngyDem',option=opt,time=md.nyear), within=Reals)  #Local power demand [month x pmarket] (GWh/year)
+        md.eEngyVal         = Param(md.nmonth, md.npmarket, initialize=read('eEngyVal',option=opt), within=Reals) #Curtailment cost (=Marginal value) of power [time x pmarket] ($/kWh)           
     #Transmission lines
         opt= opt and md.Options['Transmission']
         md.ntransline       = Set(initialize=read('eTransCap',option=opt).keys())              #Power transmission lines [indice tmsline] (id)
-        md.eTransIn         = Param(md.ntransline, initialize=read('eTransIn',option=opt))     #"Exporting" power market [tmsline] (id)
-        md.eTransOut        = Param(md.ntransline, initialize=read('eTransOut',option=opt))    #"Importing" power market [tmsline] (id)
-        md.eTransLoss       = Param(md.ntransline, initialize=read('eTransLoss',option=opt))   #Transmition losses [tmsline] (%)
-        md.eTransCap        = Param(md.ntransline, initialize=read('eTransCap',option=opt))    #Transmition capacity [tmsline] (MW)
-        md.eTransCost       = Param(md.ntransline, initialize=read('eTransCost',option=opt))   #Transmition costs [tmsline] ($/kWh)        
+        md.eTransIn         = Param(md.ntransline, initialize=read('eTransIn',option=opt), within=Any)     #"Exporting" power market [tmsline] (id)
+        md.eTransOut        = Param(md.ntransline, initialize=read('eTransOut',option=opt), within=Any)    #"Importing" power market [tmsline] (id)
+        md.eTransLoss       = Param(md.ntransline, initialize=read('eTransLoss',option=opt), within=Reals)   #Transmition losses [tmsline] (%)
+        md.eTransCap        = Param(md.ntransline, initialize=read('eTransCap',option=opt), within=Reals)    #Transmition capacity [tmsline] (MW)
+        md.eTransCost       = Param(md.ntransline, initialize=read('eTransCost',option=opt), within=Reals)   #Transmition costs [tmsline] ($/kWh)        
     #Fuels and ressources
         opt= md.Options['Energy production'] and md.Options['Energy market'] and md.Options['Fuels']               
         md.nfuel            = Set(initialize=read('eFuelCO2',option=opt).keys())                   #Fuels [indice fuel] (id)
-        md.eFuelCost        = Param(md.nyear, md.npmarket, md.nfuel, initialize=read('eFuelCost',option=opt,time=md.nyear)) #Cost of fuel [fuel] ($/kWh_fuel)
-        md.eFuelCO2         = Param(md.nfuel, initialize=read('eFuelCO2',option=opt))              #CO2 emission factor of fuel [fuel] (t/kWh_fuel)
+        md.eFuelCost        = Param(md.nyear, md.npmarket, md.nfuel, initialize=read('eFuelCost',option=opt,time=md.nyear), within=Reals) #Cost of fuel [fuel] ($/kWh_fuel)
+        md.eFuelCO2         = Param(md.nfuel, initialize=read('eFuelCO2',option=opt), within=Reals)              #CO2 emission factor of fuel [fuel] (t/kWh_fuel)
         md.eCO2Val          = Param(md.nyear, md.npmarket, initialize=read('eCO2Val',option=opt,time=md.nyear) 
                                                            if md.Options['Fuels'] == 1 else 
-                                                           {(y,pm):0 for y in md.nyear for pm in md.npmarket})  #CO2 price [1] ($/t)
+                                                           {(y,pm):0 for y in md.nyear for pm in md.npmarket}, within=Reals)  #CO2 price [1] ($/t)
     #Generic capacity investment
         opt= md.Options['Energy production'] and md.Options['Energy market'] and md.Options['Power technologies']             
-        md.nptech           = Set(initialize=set([key[0] for key in read('eVarOPEX',option=opt).keys()]))  #Power technologies [indice ptech] (id)
-        md.eCAPEX           = Param(md.nyear, md.nptech, md.npmarket, initialize=read('eCAPEX',option=opt,time=md.nyear))#Cost of Generic power capacity [ptech x pmarket] (id) ($/MW)
-        md.eVarOPEX         = Param(md.nptech, md.npmarket, initialize=read('eVarOPEX',option=opt))        #Variable Cost of Generic power production [ptech x pmarket] ($/kWh) 
-        md.eFixOPEX         = Param(md.nptech, md.npmarket, initialize=read('eFixOPEX',option=opt))        #Fix Cost of Generic power production [ptech x pmarket] ($/[kWh/day] /year)
-        md.eLifeTime        = Param(md.nptech, md.npmarket, initialize=read('eLifeTime',option=opt))       #Life time of power technology [ptech x pmarket] (years)
-        md.eConstTime       = Param(md.nptech, md.npmarket, initialize=read('eConstTime',option=opt))      #Construction time of power technology [ptech x pmarket] (years)
-        md.eMaxCap          = Param(md.nptech, md.npmarket, initialize=read('eMaxCap',option=opt))         #Maximum expandable capacity of power technology [ptech x pmarket] (kWh/day)
+        md.nptech           = Set(initialize=list(set([key[0] for key in read('eVarOPEX',option=opt).keys()])))  #Power technologies [indice ptech] (id)
+        md.eCAPEX           = Param(md.nyear, md.nptech, md.npmarket, initialize=read('eCAPEX',option=opt,time=md.nyear), within=Reals)#Cost of Generic power capacity [ptech x pmarket] (id) ($/MW)
+        md.eVarOPEX         = Param(md.nptech, md.npmarket, initialize=read('eVarOPEX',option=opt), within=Reals)        #Variable Cost of Generic power production [ptech x pmarket] ($/kWh) 
+        md.eFixOPEX         = Param(md.nptech, md.npmarket, initialize=read('eFixOPEX',option=opt), within=Reals)        #Fix Cost of Generic power production [ptech x pmarket] ($/[kWh/day] /year)
+        md.eLifeTime        = Param(md.nptech, md.npmarket, initialize=read('eLifeTime',option=opt), within=Reals)       #Life time of power technology [ptech x pmarket] (years)
+        md.eConstTime       = Param(md.nptech, md.npmarket, initialize=read('eConstTime',option=opt), within=Reals)      #Construction time of power technology [ptech x pmarket] (years)
+        md.eMaxCap          = Param(md.nptech, md.npmarket, initialize=read('eMaxCap',option=opt), within=Any)         #Maximum expandable capacity of power technology [ptech x pmarket] (kWh/day)
     #Fuels
         if md.Options['Fuels'] == 1: 
-            md.eTechEff     = Param(md.nptech, md.npmarket, initialize=read('eTechEff',option=opt))     #Efficiency of power technology [ptech x pmarket] (%)
-            md.ptech_fuel   = Param(md.nptech, md.npmarket, initialize=read('ptech_fuel',option=opt))   #Fuel of Technology [ptech x pmarket] (id)
+            md.eTechEff     = Param(md.nptech, md.npmarket, initialize=read('eTechEff',option=opt), within=Reals)     #Efficiency of power technology [ptech x pmarket] (%)
+            md.ptech_fuel   = Param(md.nptech, md.npmarket, initialize=read('ptech_fuel',option=opt), within=Any)   #Fuel of Technology [ptech x pmarket] (id)
         if md.Options['Ramping'] == 1:
-            md.eTechRamp    = Param(md.nptech, md.npmarket, initialize=read('eTechRamp',option=opt))    #Ramping rate of Technology [ptech x pmarket] (%/load segment)           
+            md.eTechRamp    = Param(md.nptech, md.npmarket, initialize=read('eTechRamp',option=opt), within=Reals)    #Ramping rate of Technology [ptech x pmarket] (%/load segment)           
     #Hydropower valuation if power market is off
         if md.Options['Energy market'] == 0:
-            md.hp_country   = Param(md.nhpp, initialize=read('hp_country',option=md.Options['Energy production']))  #Country of HP if power market is off [hpp] (id)
-            md.eHppVal      = Param(md.nhpp, initialize=read('eHppVal',option=md.Options['Energy production']))     #Value of HP production if power market is off [hpp] ($/kWh)
+            md.hp_country   = Param(md.nhpp, initialize=read('hp_country',option=md.Options['Energy production']), within=Any)  #Country of HP if power market is off [hpp] (id)
+            md.eHppVal      = Param(md.nhpp, initialize=read('eHppVal',option=md.Options['Energy production']), within=Reals)     #Value of HP production if power market is off [hpp] ($/kWh)
         else:
-            md.hp_country   = Param(md.nhpp, initialize={hp:md.pmarket_country[md.hp_pmarket[hp]] for hp in md.nhpp})
+            md.hp_country   = Param(md.nhpp, initialize={hp:md.pmarket_country[md.hp_pmarket[hp]] for hp in md.nhpp}, within=Any)
     #Power load segments
         opt= md.Options['Energy production'] and md.Options['Energy market'] and md.Options['Load']
         md.npload           = Set(initialize=read('eLoadDem',option=opt).keys() if opt == 1 else [1])            #Slices of power demand per time: day week, day week end, night [indice pload] (id)
-        md.eLoadDem         = Param(md.npload, initialize=read('eLoadDem',option=opt) if opt == 1 else {1:1})    #Share of demand per power load [pload] (-)
-        md.eLoadTime        = Param(md.npload, initialize=read('eLoadTime',option=opt) if opt == 1 else {1:1})   #Share of time per power load [pload] (-)
+        md.eLoadDem         = Param(md.npload, initialize=read('eLoadDem',option=opt) if opt == 1 else {1:1}, within=Reals)    #Share of demand per power load [pload] (-)
+        md.eLoadTime        = Param(md.npload, initialize=read('eLoadTime',option=opt) if opt == 1 else {1:1}, within=Reals)   #Share of time per power load [pload] (-)
         if md.Options['Load capacity'] == 1: #Assumes either "Other power plants" or "Power technologies" are ON 
-            md.nptechx      = Set(initialize=set([k[1] for k in read('eLoadCap').keys()])) #Technologies of load capacity
-            md.eLoadCap     = Param(md.npload, md.nptechx, md.nmonth, initialize=read('eLoadCap',option=opt))         #Load segment capacity factor of power technology [pload x ptech] (%)
+            md.nptechx      = Set(initialize=list(set([k[1] for k in read('eLoadCap').keys()]))) #Technologies of load capacity
+            md.eLoadCap     = Param(md.npload, md.nptechx, md.nmonth, initialize=read('eLoadCap',option=opt), within=Reals)         #Load segment capacity factor of power technology [pload x ptech] (%)
 
         #%%#######################
             #**Activities**#
         ########################## 
         opt= md.Options['Activities'] 
         md.njactivity       = Set(initialize=read('jProdCap',option=opt).keys())
-        md.j_country        = Param(md.njactivity,initialize=read('j_country',option=opt)) #country of activity
-        md.j_catch          = Param(md.njactivity,initialize=read('j_catch',option=opt)) #catchment of activity (if relevant)
-        md.j_pmarket        = Param(md.njactivity,initialize=read('j_pmarket',option=opt)) #power market of activity (if relevant)
-        md.j_fzone          = Param(md.njactivity,initialize=read('j_fzone',option=opt)) #farming zone of activity (if relevant)
-        md.j_cmarket        = Param(md.njactivity,initialize=read('j_cmarket',option=opt)) #crop market of activity (if relevant)
-        md.j_cropin         = Param(md.njactivity,initialize=read('j_cropin',option=opt)) #crop as input to activity (if relevant)
-        md.j_cropout        = Param(md.njactivity,initialize=read('j_cropout',option=opt)) #crop as output to activity (if relevant)
-        md.jProdCap         = Param(md.njactivity,initialize=read('jProdCap',option=opt)) # Production capacity (units/month)
-        md.jProdCost        = Param(md.njactivity,initialize=read('jProdCost',option=opt)) # Production costs (M$/units/month)
+        md.j_country        = Param(md.njactivity,initialize=read('j_country',option=opt), within=Any) #country of activity
+        md.j_catch          = Param(md.njactivity,initialize=read('j_catch',option=opt), within=Any) #catchment of activity (if relevant)
+        md.j_pmarket        = Param(md.njactivity,initialize=read('j_pmarket',option=opt), within=Any) #power market of activity (if relevant)
+        md.j_fzone          = Param(md.njactivity,initialize=read('j_fzone',option=opt), within=Any) #farming zone of activity (if relevant)
+        md.j_cmarket        = Param(md.njactivity,initialize=read('j_cmarket',option=opt), within=Any) #crop market of activity (if relevant)
+        md.j_cropin         = Param(md.njactivity,initialize=read('j_cropin',option=opt), within=Any) #crop as input to activity (if relevant)
+        md.j_cropout        = Param(md.njactivity,initialize=read('j_cropout',option=opt), within=Any) #crop as output to activity (if relevant)
+        md.jProdCap         = Param(md.njactivity,initialize=read('jProdCap',option=opt), within=Reals) # Production capacity (units/month)
+        md.jProdCost        = Param(md.njactivity,initialize=read('jProdCost',option=opt), within=Reals) # Production costs (M$/units/month)
         #md.jProdVal         = Param(md.njactivity,initialize=read('jProdVal',option=opt)) # Production value (M$/units/month)
-        md.jLandCons        = Param(md.njactivity,initialize=read('jLandCons',option=opt)) # Land consumption (1000 ha/units/month)
-        md.jLandProd        = Param(md.njactivity,initialize=read('jLandProd',option=opt)) # Land production (1000 ha/units/month)
-        md.jWatCons         = Param(md.njactivity,initialize=read('jWatCons',option=opt)) # Water consumptio (Mm3/units/month)
-        md.jWatProd         = Param(md.njactivity,initialize=read('jWatProd',option=opt)) # Water production (Mm3/units/month)
-        md.jPowCons         = Param(md.njactivity,initialize=read('jPowCons',option=opt)) # Power consumption (GWh/units/month)
-        md.jPowProd         = Param(md.njactivity,initialize=read('jPowProd',option=opt)) # Power production (GWh/units/month)
-        md.jCropCons        = Param(md.njactivity,initialize=read('jCropCons',option=opt)) # Crop consumption (1000t/units/month)
-        md.jCropProd        = Param(md.njactivity,initialize=read('jCropProd',option=opt)) # Crop production (1000t/units/month)
+        md.jLandCons        = Param(md.njactivity,initialize=read('jLandCons',option=opt), within=Reals) # Land consumption (1000 ha/units/month)
+        md.jLandProd        = Param(md.njactivity,initialize=read('jLandProd',option=opt), within=Reals) # Land production (1000 ha/units/month)
+        md.jWatCons         = Param(md.njactivity,initialize=read('jWatCons',option=opt), within=Reals) # Water consumptio (Mm3/units/month)
+        md.jWatProd         = Param(md.njactivity,initialize=read('jWatProd',option=opt), within=Reals) # Water production (Mm3/units/month)
+        md.jPowCons         = Param(md.njactivity,initialize=read('jPowCons',option=opt), within=Reals) # Power consumption (GWh/units/month)
+        md.jPowProd         = Param(md.njactivity,initialize=read('jPowProd',option=opt), within=Reals) # Power production (GWh/units/month)
+        md.jCropCons        = Param(md.njactivity,initialize=read('jCropCons',option=opt), within=Reals) # Crop consumption (1000t/units/month)
+        md.jCropProd        = Param(md.njactivity,initialize=read('jCropProd',option=opt), within=Reals) # Crop production (1000t/units/month)
         
 #%%DECLARE DECISION VARIABLES###       
     #Water Module#
@@ -397,7 +399,7 @@ class HydroeconomicOptimization():
     #Agriculture Module#
         if md.Options['Crop choice'] == 'fixed': #Cultivated area is fixed (=parameter)
             md.CULAREA      = Param(md.nyear, md.nfzone, md.nculture, mutable=True, 
-                                    initialize=read('aCulMax',option=md.Options['Agriculture'],time=md.nyear)) #Fixed cultivated area [year x fzone x culture] (1000ha)
+                                    initialize=read('aCulMax',option=md.Options['Agriculture'],time=md.nyear), within=Reals) #Fixed cultivated area [year x fzone x culture] (1000ha)
             _xCULAREA       = lambda md,y,fz,cul : md.CULAREA[y,fz,cul]
             _xPHYAREA       = lambda md,y,fz : sum(md.CULAREA[y,fz,kcul] for kcul in md.nculture)
         elif md.Options['Yield water response'] == 'nonlinear':
@@ -460,26 +462,26 @@ class HydroeconomicOptimization():
                                for y in md.nyear}
         else:
             DiscountFactor  = {y: 1 for y in md.nyear} #no discounting
-        md.iDisFact         = Param(md.nyear, initialize=DiscountFactor)                     #Discounting factor [year] (-)
+        md.iDisFact         = Param(md.nyear, initialize=DiscountFactor, within=Reals)                     #Discounting factor [year] (-)
         
         if md.Options['Investment module'] in [1,'continuous']:                        
         #Declare indices
             md.ninvest      = Set(initialize=read('iInvCap').keys())                          #Investments [indice inv] (id)
             md.ninvphase    = Set(initialize=read('invphase_t').keys())                      #Investment phases [indice invphase] (id)            
         #Declare parameters
-            md.invphase_t   = Param(md.ninvphase, initialize=read('invphase_t'))              #time step of investment phase [invphase] (time)
-            md.inv_after    = Param(md.ninvest, initialize=read('inv_after'))                 #Investment can occur only after another investment [inv] (id)
-            md.inv_group    = Param(md.ninvest, initialize=read('inv_group'))                 #Investment group have to occur at the same time [inv] (id) #ADD: only works with 2 investments so far
-            md.inv_replace  = Param(md.ninvest, initialize=read('inv_replace'))               #Investment replaces existing infrastructure [inv] (id) #ADD only active for hydropower now
-            md.inv_year     = Param(md.ninvest,md.ninvphase, initialize=read('inv_year'))                  #Investment should occur at this phase [inv] (id)
-            md.inv_max      = Param(md.ninvest, initialize=read('inv_max'))                   # Maximum investment if "continuous" option [inv] (various units)
-            md.iMaxInv      = Param(md.ninvphase, initialize=read('iMaxInv'))                 #Maximum investment amount of investment phase [invphase] ($)
-            md.iCAPEX       = Param(md.nyear, md.ninvest, initialize=read('iCAPEX'))          #investment capital costs [inv] ($)
-            md.iFixOPEX     = Param(md.ninvest, initialize=read('iFixOPEX'))                  #investment fix operational costs [inv] ($)
-            md.iInvType     = Param(md.ninvest, initialize=read('iInvType'))                  #type of investment [invtype] (type)
-            md.iInvCap      = Param(md.ninvest, initialize=read('iInvCap'))                   #capacity of investment [inv] (different units)
-            md.iConstTime   = Param(md.ninvest, initialize=read('iConstTime'))                #implementation time of investment [inv] (month)
-            md.iLifeTime    = Param(md.ninvest, initialize=read('iLifeTime'))                 #life time of investment after construction [inv] (month)
+            md.invphase_t   = Param(md.ninvphase, initialize=read('invphase_t'), within=Any)              #time step of investment phase [invphase] (time)
+            md.inv_after    = Param(md.ninvest, initialize=read('inv_after'), within=Any)                 #Investment can occur only after another investment [inv] (id)
+            md.inv_group    = Param(md.ninvest, initialize=read('inv_group'), within=Any)                 #Investment group have to occur at the same time [inv] (id) #ADD: only works with 2 investments so far
+            md.inv_replace  = Param(md.ninvest, initialize=read('inv_replace'), within=Any)               #Investment replaces existing infrastructure [inv] (id) #ADD only active for hydropower now
+            md.inv_year     = Param(md.ninvest,md.ninvphase, initialize=read('inv_year'), within=Any)     #Investment should occur at this phase [inv] (id)
+            md.inv_max      = Param(md.ninvest, initialize=read('inv_max'), within=Any)                   # Maximum investment if "continuous" option [inv] (various units)
+            md.iMaxInv      = Param(md.ninvphase, initialize=read('iMaxInv'), within=Any)                 #Maximum investment amount of investment phase [invphase] ($)
+            md.iCAPEX       = Param(md.nyear, md.ninvest, initialize=read('iCAPEX'), within=Reals)          #investment capital costs [inv] ($)
+            md.iFixOPEX     = Param(md.ninvest, initialize=read('iFixOPEX'), within=Reals)                  #investment fix operational costs [inv] ($)
+            md.iInvType     = Param(md.ninvest, initialize=read('iInvType'), within=Any)                  #type of investment [invtype] (type)
+            md.iInvCap      = Param(md.ninvest, initialize=read('iInvCap'), within=Reals)                   #capacity of investment [inv] (different units)
+            md.iConstTime   = Param(md.ninvest, initialize=read('iConstTime'), within=Reals)                #implementation time of investment [inv] (month)
+            md.iLifeTime    = Param(md.ninvest, initialize=read('iLifeTime'), within=Reals)                 #life time of investment after construction [inv] (month)
         
         #Declare Decision-Variables
             if md.Options['Investment module']==1:
@@ -522,6 +524,7 @@ class HydroeconomicOptimization():
         #_nuser = lambda co : [ku for ku in md.nuser if md.user_country[ku]==co]
         #_nfzone = lambda co : [kfz for kfz in md.nfzone if md.fzone_country[kfz]==co]
         #_nifzone = lambda co : [kfz for kfz in md.nifzone if md.fzone_country[kfz]==co]
+        yfin = md.t_year[md.Options['tfin']]
         
         #Intermediate expressions
         #Water users
@@ -529,6 +532,7 @@ class HydroeconomicOptimization():
                 rule=lambda md,y,u:sum(md.WwSUPPLY[t,u] * md.wUserVal[u] for t in _ntime(y)))
         md.xUserSupCost=Expression(md.nyear,md.nuser, #User supply costs [M$]
                 rule=lambda md,y,u:sum(md.WwSUPPLY[t,u]/(1-md.wUserLoss[u]) * md.wSupCost[u] for t in _ntime(y)))
+        
         #Farming zones
         md.xFzCulCost=Expression(md.nyear,md.nfzone, #Cultivation costs [M$]
                 rule=lambda md,y,fz:sum(md.kha_to_Mha*md.xCULAREA[y,fz,kcul]*md.aCulCost[md.fzone_type[fz],kcul] 
@@ -538,16 +542,19 @@ class HydroeconomicOptimization():
                                         for t in _ntime(y) for kcul in md.nculture))
         md.xFzPumpCost=Expression(md.nyear,md.nifzone, #Groundwater pumping costs [M$]
                 rule=lambda md,y,fz:sum(md.AwGWSUPPLY[t,fz,cul]*md.wGwCost[aq] 
-                                        for t in _ntime(y) for cul in md.nculture for aq in md.naquifer if md.fzone_catch[fz]==md.aqui_catch[aq]))
+                                        for t in _ntime(y) for cul in md.nculture for aq in md.naquifer 
+                                        if md.fzone_catch[fz]==md.aqui_catch[aq]))
         md.xFzBen=Expression(md.nyear,md.nfzone, #Farm level benefits [M$] (=0 if crop markets are activated)
                 rule= lambda md,y,fz:(sum(md.kt_to_Mt*md.AcPROD[y,fz,kcr] * md.aFarmVal[y,md.fzone_country[fz],kcr] 
                                           for kcr in md.ncrop) 
-                                     if md.Options['Crop market'] == 0 else 0))
+                                     if md.Options['Crop market'] == 0 else 0))        
         
         #Crop markets
         md.xCmMarkMarg =Expression(md.nyear,md.ncmarket, #Marketing margin costs [M$]
-                rule=lambda md,y,cm:sum(md.aMarkMarg[cm]*md.xFzCulCost[y,fz] for fz in md.nfzone if md.fzone_cmarket[fz]==cm)
-                                    +sum(md.aMarkMarg[cm]*(md.xFzIrrCost[y,fz]+md.xFzPumpCost[y,fz]) for fz in md.nifzone if md.fzone_cmarket[fz]==cm))
+                rule=lambda md,y,cm:sum(md.aMarkMarg[cm]*md.xFzCulCost[y,fz] 
+                                        for fz in md.nfzone if md.fzone_cmarket[fz]==cm)
+                                    +sum(md.aMarkMarg[cm]*(md.xFzIrrCost[y,fz]+md.xFzPumpCost[y,fz]) 
+                                         for fz in md.nifzone if md.fzone_cmarket[fz]==cm))
         md.xCmTransCost=Expression(md.nyear,md.ncmarket, #Crop transport costs [M$]
                 rule=lambda md,y,cm:sum(md.kt_to_Mt*md.AcTRANS[y,ct,kcr] * md.aTransCost[y,ct,kcr] 
                                         for ct in md.nctrans for kcr in md.ncrop if md.aTransOut[ct]==cm))
@@ -563,7 +570,67 @@ class HydroeconomicOptimization():
                                            +(1/md.aDemEla[cm,kcr]*1/2*md.kt_to_Mt*md.AcSUPPLY[y,cm,kcr]**2/md.aCropDem[y,cm,kcr] #scaling factor is not **2 because also applies to aCropDem
                                              if md.aDemEla[cm,kcr] != 0 else 0) 
                                            if md.aCropDem[y,cm,kcr] !=0 else 0)
-                                         for kcr in md.ncrop)))
+                                         for kcr in md.ncrop)))        
+        
+        #Energy production module: Production costs of hydropower and power plants (O&M, fuel ...)    
+        md.xHpProdCost=Expression(md.nyear,md.nhpp, #Hydropower O.M costs [M$]
+                rule=lambda md,y,hp:sum(md.eHppCost[hp]*md.se*md.EeHPPROD[t,pld,hp] 
+                                        for t in _ntime(y) for pld in md.npload for hp in md.nhpp))
+        md.xOppProdCost=Expression(md.nyear,md.npmarket, #Othr power plants O.M costs [M$]
+                rule=lambda md,y,pm:sum(md.eOppCost[y,opp]*md.se*md.EeOPPROD[t,pld,opp] 
+                                        for t in _ntime(y) for pld in md.npload for opp in md.nopp 
+                                        if md.op_pmarket[opp]==pm))
+        md.xOppFuelCost=Expression(md.nyear,md.npmarket, #Othr power plants fuel costs [M$]
+                rule=lambda md,y,pm:sum(md.se*md.EeOPPROD[t,pld,opp]/md.eOppEff[opp]*md.eFuelCost[y,md.op_pmarket[opp],fu] 
+                                        for t in _ntime(y) for pld in md.npload for opp in md.nopp for fu in md.nfuel
+                                        if md.op_pmarket[opp]==pm and md.op_fuel[opp]==fu))
+        md.xOppCO2Cost=Expression(md.nyear,md.npmarket, #Othr power plants CO2 costs [M$]
+                rule=lambda md,y,pm:sum(md.se*md.EeOPPROD[t,pld,opp]/md.eOppEff[opp]*md.eFuelCO2[fu]*md.eCO2Val[y,md.op_pmarket[opp]] 
+                                        for t in _ntime(y) for pld in md.npload for opp in md.nopp for fu in md.nfuel 
+                                        if  md.op_pmarket[opp]==pm and md.op_fuel[opp]==fu))
+        md.xGenProdCost=Expression(md.nyear,md.npmarket, #Generic technologies O.M costs [M$]
+                rule=lambda md,y,pm:sum(md.se*md.EeGENPROD[t,pld,pt,pm]*md.eVarOPEX[pt,pm] 
+                                        for t in _ntime(y) for pld in md.npload for pt in md.nptech))
+        md.xGenFuelCost=Expression(md.nyear,md.npmarket, #Generic technologies fuel costs [M$]
+                rule=lambda md,y,pm:sum(md.se*md.EeGENPROD[t,pld,pt,pm]/md.eTechEff[pt,pm]*md.eFuelCost[y,pm,fu]  
+                                        for t in _ntime(y) for pld in md.npload for pt in md.nptech for fu in md.nfuel
+                                        if md.ptech_fuel[pt,pm]==fu))
+        md.xGenCO2Cost=Expression(md.nyear,md.npmarket, #Generic technologies fuel costs [M$]
+                rule=lambda md,y,pm:sum(md.se*md.EeGENPROD[t,pld,pt,pm]/md.eTechEff[pt,pm]*md.eFuelCO2[fu]*md.eCO2Val[y,pm]  
+                                        for t in _ntime(y) for pld in md.npload for pt in md.nptech for fu in md.nfuel
+                                        if md.ptech_fuel[pt,pm]==fu))
+        
+        def xGenCapCost(md,y,pm):
+            CAPEX=sum(md.se*md.EeGENCAP[y,pt,pm]*md.eCAPEX[y,pt,pm] for pt in md.nptech) #CAPEX
+            FixOPEX=sum(md.eFixOPEX[pt,pm]*sum(md.se*md.EeGENCAP[ky,pt,pm] 
+                                               for ky in md.nyear 
+                                               if ky <= y and ky > y-md.eLifeTime[pt,pm]) 
+                        for pt in md.nptech)
+            if y == yfin:
+                CAPEX+=-sum(md.se*md.EeGENCAP[y,pt,pm]*md.eCAPEX[y,pt,pm]
+                            *max(0,1-(md.t_year[md.Options['tfin']]+1-(y+md.eConstTime[pt,pm]))/md.eLifeTime[pt,pm]) #share of lifetime not used
+                            for y in md.nyear for pt in md.nptech for pm in md.npmarket 
+                            if y+md.eConstTime[pt,pm] <= md.t_year[md.Options['tfin']])
+            return CAPEX+FixOPEX
+        
+        md.xGenCapCost=Expression(md.nyear,md.npmarket,rule=xGenCapCost)
+        
+        #Energy market module: Energy distributed, Energy transmission costs, Energy curtailment costs                                
+        md.xPmBen=Expression(md.nyear,md.npmarket, #Energy supply benefits [M$]
+                rule=lambda md,y,pm:sum(md.se*md.EeSUPPLY[t,pld,pm] * md.eEngyVal[md.t_month[t],pm]
+                                        for t in _ntime(y) for pld in md.npload))
+        md.xHpBen=Expression(md.nyear,md.nhpp, #Hydropower benefits (if no markets) [M$]
+                rule=lambda md,y,hp:sum(md.se*md.EeHPPROD[t,pld,hp]*md.eHppVal[hp]
+                                        for t in _ntime(y) for pld in md.npload)
+                                    if md.Options['Energy market'] == 0 else 0)
+        md.xPmTransCost=Expression(md.nyear,md.npmarket, #Energy transmission costs [M$]
+                rule=lambda md,y,pm:sum(md.se*md.EeTRANS[t,pld,tl] * md.eTransCost[tl]
+                                        for t in _ntime(y) for pld in md.npload for tl in md.ntransline))
+        
+        #Activity module
+        md.xActBen=Expression(md.nyear,md.njactivity,
+                rule=lambda md,y,j:-sum(md.JjPROD[t,j]*md.jProdCost[j] for t in _ntime(y)))
+        
         #Investment module    
         def xInvCAPEX(md,y):
             if md.Options['Investment module'] not in [1,'continuous']:
@@ -573,7 +640,6 @@ class HydroeconomicOptimization():
                           for ip in md.ninvphase for inv in md.ninvest 
                           if md.t_year[md.invphase_t[ip]]==y)
             #Final year - return "unused" investment value
-            yfin = md.t_year[md.Options['tfin']]
             if y == yfin: 
             #ADD in this case the remaining value at the end is proportional to the use of the infrastructure.
                 CAPEXrem= sum(md.IbINVEST[ip,inv]*md.iCAPEX[y,inv]
@@ -582,8 +648,7 @@ class HydroeconomicOptimization():
                               if md.invphase_t[ip]+md.iConstTime[inv] in md.ntime 
                               and md.t_year[md.invphase_t[ip]+md.iConstTime[inv]]<=yfin)
                 CAPEX += -CAPEXrem #remaining capital value at end of simulation period
-            return CAPEX
-        
+            return CAPEX        
         def xInvFixOPEX(md,y):
             if md.Options['Investment module'] not in [1,'continuous']:
                 return 0
@@ -592,57 +657,12 @@ class HydroeconomicOptimization():
                           for ip in md.ninvphase for inv in md.ninvest 
                           if md.t_year[md.invphase_t[ip]]==y
                           and md.iInvCap[inv] != 0)
-            return fixOPEX
-        
-        #assign functions to expressions
+            return fixOPEX       
         md.xInvCAPEX = Expression(md.nyear,rule=xInvCAPEX)
         md.xInvFixOPEX = Expression(md.nyear,rule=xInvFixOPEX)
-        #Economic Balance
-        def obj_rule(md):
-            yfin = md.t_year[md.Options['tfin']] #final year
-        #Water module: Supply benefits, supply costs            
-            UserBalance         = {y:sum(md.xUserSupCost[y,u]-md.xUserBen[y,u] 
-                                         for u in md.nuser) for y in md.nyear}            
-        #Agricultural module: Cultivation costs of cultures (labour, machinery, fertilizers, infrastructure....), Irrigation costs of cultures (pumping ...)     
-            AgricultureBalance  = {y:sum(md.xFzCulCost[y,fz] - md.xFzBen[y,fz] 
-                                         for fz in md.nfzone)
-                                    +sum(md.xFzIrrCost[y,fz] + md.xFzPumpCost[y,fz] 
-                                         for fz in md.nifzone) for y in md.nyear}        
-        #Crop market module: Crop allocated to crop markets, Cost and benefits of imported crops (external market), Transport costs          
-            CropMarketBalance   = {y:sum(+ md.xCmMarkMarg[y,cm] + md.xCmTransCost[y,cm]
-                                         + md.xCmProdCost[y,cm] - md.xCmBen[y,cm]
-                                         for cm in md.ncmarket) for y in md.nyear}
-      
-        #Energy production module: Production costs of hydropower and power plants (O&M, fuel ...)    
-            HpOMCost            = {y:sum(md.eHppCost[hp]*md.se*md.EeHPPROD[t,pld,hp] for t in md.ntime for pld in md.npload for hp in md.nhpp if md.t_year[t]==y) for y in md.nyear}            
-            OppOMCost           = {y:sum(md.eOppCost[y,opp]*md.se*md.EeOPPROD[t,pld,opp] for t in md.ntime for pld in md.npload for opp in md.nopp if md.t_year[t]==y) for y in md.nyear}    
-            OppFuelCost         = {y:sum(md.se*md.EeOPPROD[t,pld,opp]/md.eOppEff[opp]*md.eFuelCost[y,md.op_pmarket[opp],fu] for t in md.ntime for pld in md.npload for opp in md.nopp for fu in md.nfuel if md.t_year[t]==y and md.op_fuel[opp]==fu) for y in md.nyear}
-            OppCO2Cost          = {y:sum(md.se*md.EeOPPROD[t,pld,opp]/md.eOppEff[opp]*md.eFuelCO2[fu]*md.eCO2Val[y,md.op_pmarket[opp]] for t in md.ntime for pld in md.npload for opp in md.nopp for fu in md.nfuel if md.t_year[t]==y and md.op_fuel[opp]==fu) for y in md.nyear}
-            GenCapCost          = {y:sum(md.se*md.EeGENCAP[y,pt,pm]*md.eCAPEX[y,pt,pm] #CAPEX
-                                         +md.eFixOPEX[pt,pm] #fix OPEX
-                                         *sum(md.se*md.EeGENCAP[ky,pt,pm] for ky in md.nyear if ky <= y and ky > y-md.eLifeTime[pt,pm])
-                                         for pt in md.nptech for pm in md.npmarket)
-                                    for y in md.nyear}           
-            #remaining infrastructure value
-            GenCapCost[yfin]   += (-sum(md.se*md.EeGENCAP[y,pt,pm]*md.eCAPEX[y,pt,pm]
-                                       *max(0,1-(md.t_year[md.Options['tfin']]+1-(y+md.eConstTime[pt,pm]))/md.eLifeTime[pt,pm]) #share of lifetime not used
-                                        for y in md.nyear for pt in md.nptech for pm in md.npmarket if y+md.eConstTime[pt,pm] <= md.t_year[md.Options['tfin']]))
-            #NB: Investments that finish construction after last time steps are not valued to avoid "free" investments
-            GenProdCost         = {y:sum(md.se*md.EeGENPROD[t,pld,pt,pm]*md.eVarOPEX[pt,pm] for t in md.ntime for pld in md.npload for pt in md.nptech for pm in md.npmarket if md.t_year[t]==y) for y in md.nyear}
-            GenFuelCost         = {y:sum(md.se*md.EeGENPROD[t,pld,pt,pm]/md.eTechEff[pt,pm]*md.eFuelCost[y,pm,fu]             for t in md.ntime for pld in md.npload for pt in md.nptech for pm in md.npmarket for fu in md.nfuel if md.t_year[t]==y and md.ptech_fuel[pt,pm]==fu) for y in md.nyear}
-            GenCO2Cost          = {y:sum(md.se*md.EeGENPROD[t,pld,pt,pm]/md.eTechEff[pt,pm]*md.eFuelCO2[fu]*md.eCO2Val[y,pm]  for t in md.ntime for pld in md.npload for pt in md.nptech for pm in md.npmarket for fu in md.nfuel if md.t_year[t]==y and md.ptech_fuel[pt,pm]==fu) for y in md.nyear}
-            EnergyProdBalance   = {y:HpOMCost[y] + OppOMCost[y] + OppFuelCost[y] + OppCO2Cost[y] + GenCapCost[y] + GenProdCost[y] + GenFuelCost[y] + GenCO2Cost[y] for y in md.nyear}           
-                
-        #Energy market module: Energy distributed, Energy transmission costs, Energy curtailment costs    
-            EngyBenefit         = {y:sum(md.se*md.EeSUPPLY[t,pld,pm] * md.eEngyVal[md.t_month[t],pm] for t in md.ntime for pld in md.npload for pm in md.npmarket if md.t_year[t]==y) for y in md.nyear}
-            if md.Options['Energy market'] == 0:
-                EngyBenefit     = {y:sum(md.se*md.EeHPPROD[t,pld,hp]*md.eHppVal[hp] for t in md.ntime for pld in md.npload for hp in md.nhpp if md.t_year[t]==y) for y in md.nyear}
-            EngyTransCost       = {y:sum(md.se*md.EeTRANS[t,pld,tl] * md.eTransCost[tl]  for t in md.ntime for pld in md.npload for tl in md.ntransline if md.t_year[t]==y) for y in md.nyear}
-            EnergyMarketBalance = {y:EngyTransCost[y]-EngyBenefit[y] for y in md.nyear} #            
-        #Activities
-            ActivityBalance     = {y:sum(md.JjPROD[t,j]*md.jProdCost[j] for t in _ntime(y) for j in md.njactivity) for y in md.nyear}
-            #ActBenefit          = {y:sum(md.JjPROD[t,j]*md.jProdVal[j] for j in md.njactivity for t in _ntime(y)) for y in md.nyear}
-        #DEBUG MODE
+        
+        #Debug module
+        def xDebugCost(md,y):
             DebugCost=0
             if md.Options['Debug mode'] == 1:
                 DebugCost += sum(md.DUMYWATER[t,c]*md.debugcost 
@@ -658,8 +678,40 @@ class HydroeconomicOptimization():
                 DebugCost += sum(md.kha_to_Mha*md.AlCULAREA[y,fz,fd,ypt]*md.debugcost 
                                  for y in md.nyear for fz in md.nfzone for fd in md.nfieldculture 
                                  for ypt in md.nypath if ypt != 1)
+            return DebugCost
+        md.xDebugCost = Expression(md.nyear,rule=xDebugCost)
         
-            InvestmentBalance={y:md.xInvCAPEX[y]+md.xInvFixOPEX[y] for y in md.nyear}
+        #Economic Balance
+        def obj_rule(md):
+        #Water module: Supply benefits, supply costs            
+            UserBalance         = {y:sum(md.xUserSupCost[y,u]-md.xUserBen[y,u] 
+                                         for u in md.nuser) for y in md.nyear}            
+        #Agricultural module: Cultivation costs of cultures (labour, machinery, fertilizers, infrastructure....), Irrigation costs of cultures (pumping ...)     
+            AgricultureBalance  = {y:sum(md.xFzCulCost[y,fz] - md.xFzBen[y,fz] 
+                                         for fz in md.nfzone)
+                                    +sum(md.xFzIrrCost[y,fz] + md.xFzPumpCost[y,fz] 
+                                         for fz in md.nifzone) for y in md.nyear}        
+        #Crop market module: Crop allocated to crop markets, Cost and benefits of imported crops (external market), Transport costs          
+            CropMarketBalance   = {y:sum(+ md.xCmMarkMarg[y,cm] + md.xCmTransCost[y,cm]
+                                         + md.xCmProdCost[y,cm] - md.xCmBen[y,cm]
+                                         for cm in md.ncmarket) for y in md.nyear}      
+        #Energy production module: Production costs of hydropower and power plants (O&M, fuel ...)    
+            EnergyProdBalance   = {y:sum(+md.xOppProdCost[y,pm] 
+                                         +md.xOppFuelCost[y,pm] + md.xOppCO2Cost[y,pm] 
+                                         +md.xGenProdCost[y,pm] + md.xGenFuelCost[y,pm] 
+                                         +md.xGenCO2Cost[y,pm] + md.xGenCapCost[y,pm] 
+                                         for pm in md.npmarket)
+                                    +sum(md.xHpProdCost[y,hp] for hp in md.nhpp)
+                                   for y in md.nyear}                           
+        #Energy market module: Energy distributed, Energy transmission costs, Energy curtailment costs    
+            EnergyMarketBalance = {y:sum(md.xPmTransCost[y,pm] - md.xPmBen[y,pm] for pm in md.npmarket)
+                                    +sum(md.xHpBen[y,hp] for hp in md.nhpp if md.Options['Energy market'] == 0)
+                                   for y in md.nyear} #            
+        #Activities
+            ActivityBalance     = {y:-sum(md.xActBen[y,j] for j in md.njactivity) for y in md.nyear}
+        
+        #DEBUG MODE
+            InvestmentBalance   = {y:md.xInvCAPEX[y]+md.xInvFixOPEX[y] for y in md.nyear}
 
         #Final Balance
             #Twisted objective coefficient - prioritizing one sector over others
@@ -667,13 +719,14 @@ class HydroeconomicOptimization():
             if 'Objective_coef' in md.Options.keys() and md.Options['Objective_coef']==md.Options['Objective_coef']:
                 ObjCoef=[float(k) for k in md.Options['Objective_coef'].split('#')] #in the order: water, power, agriculture
             
-            return DebugCost + sum(md.iDisFact[y]*
-                                   (+ InvestmentBalance[y]
-                                    +  UserBalance[y] * ObjCoef[0]                                                   
-                                    + (EnergyProdBalance[y] + EnergyMarketBalance[y]) * ObjCoef[1]
-                                    + (AgricultureBalance[y] + CropMarketBalance[y]) * ObjCoef[2]
-                                    +  ActivityBalance[y])
-                                   for y in md.nyear)
+            return sum(md.xDebugCost[y] 
+                       +md.iDisFact[y]*
+                       (+ InvestmentBalance[y]
+                        +  UserBalance[y] * ObjCoef[0]                                                   
+                        + (EnergyProdBalance[y] + EnergyMarketBalance[y]) * ObjCoef[1]
+                        + (AgricultureBalance[y] + CropMarketBalance[y]) * ObjCoef[2]
+                        +  ActivityBalance[y])
+                       for y in md.nyear)
         md.obj = Objective(rule=obj_rule)
         
 #%%CONSTRAINTS
@@ -754,7 +807,8 @@ class HydroeconomicOptimization():
         _naquifer = lambda c : [kaq for kaq in md.naquifer if md.aqui_catch[kaq]==c] #Aquifers of a catchment
         
         ##Expressions##
-        def xResEvap(md,nt,nres): #Reservoir evaporation
+        #Reservoir evaporation
+        def xResEvap(md,nt,nres): 
             nc=md.res_catch[nres]
             ET0=max(0,value(md.wET0[nt,nc])-value(md.wRainFall[nt,nc]))*md.mm_to_m
             if md.Options['Lakes'] == 1 and md.res_type[nres] == 'wetland':
@@ -768,42 +822,95 @@ class HydroeconomicOptimization():
             else:
                 return ET0*(md.wkV[nres]*_storage(nt,nres,mode='average')+md.wResArea[nres])
         md.xResEvap=Expression(md.ntime,md.nres,rule=xResEvap)
+        #Inflow
+        #Groundwater storage
+        
         ##Constraint catalogue##
         def water_waterbalance(md,nt,nc): #Water Balance per Watershed [catchment x time]
-            ActProd             = sum(md.JjPROD[nt,kj]*md.jWatProd[kj] for kj in md.njactivity if md.j_catch[kj]==nc)
-            ActCons             = sum(md.JjPROD[nt,kj]*md.jWatCons[kj] for kj in md.njactivity if md.j_catch[kj]==nc)
-            NetInflow           = (1-md.wFlowLoss[nc]) * sum(md.sw*md.WwOUTFLOW[nt,kc] for kc in md.ncatch if md.catch_ds[kc] == nc) #Net incoming flow from upstream catchments (Mm3)
-            RunOff              = md.wRunOff[nt,nc]   #Catchment Runoff (Mm3) 
-            GwStorage           = sum(md.WwGWSTORAGE[md.t_prev[nt],kaq] if not (md.Options['Initial time step'] == 1 and md.Options['tini'] == nt) else md.wGwIni[kaq] for kaq in _naquifer(nc)) #Previous ground water storage
-            Pumping             = sum(md.AwGWSUPPLY[nt,kfz,kcul] for kfz in _nifzone(nc) for kcul in md.nculture) if md.Options['Groundwater']==1 else 0 #Water abstraction from groundwater reservoir
-            BaseFlow            = sum(GwStorage*(1-exp(-md.wGwFlow[kaq])) + (md.wGwRech[nt,kaq]-Pumping)*(1-(1-exp(-md.wGwFlow[kaq]))/md.wGwFlow[kaq]) for kaq in _naquifer(nc)) #Baseflow from groundwater reservoir
-            UserCons            = sum(md.WwSUPPLY[nt,ku] * (1/(1-md.wUserLoss[ku])-md.wUserRturn[ku]) for ku in md.nuser if md.user_catch[ku] == nc)      #Consumption of non agricultural users (Mm3)
-            AgrCons             = sum(md.AwSUPPLY[nt,kfz,kcu] * (1/(1-md.aIrrgLoss[kfz])-md.aCulRturn[md.fzone_type[kfz],kcu]) for kfz in _nifzone(nc) for kcu in md.nculture)  #Agricultural module: Consumptiom to agriculture/crops (Mm3)                
-            DeltaStorage        = sum(_storage(nt,kres,mode='delta') for kres in _nres(nc)) #Storage in reservoir (Mm3)
-            Evaporation         = sum(md.xResEvap[nt,kres] for kres in _nres(nc)) #Evaporation from reservoir (Mm3)
-            TransNetInflow      = sum(md.WwTRANSFER[nt,ktrans] * (1-md.wTransLoss[ktrans])   for ktrans in md.ntransfer if md.transfer_ds[ktrans] == nc)  #Incoming flow from upstream transfer scheme- if exists (Mm3)
-            TransGrossOutflow   = sum(md.WwTRANSFER[nt,ktrans]                               for ktrans in md.ntransfer if md.transfer_us[ktrans] == nc)  #Allocation to downstream transfer scheme- if exists (Mm3)                   
-            CatchmentOutflow    = md.sw*md.WwOUTFLOW[nt,nc]  #Catchment outflow : Allocation to downstream catchment (Mm3)           
+            ActProd             = sum(md.JjPROD[nt,kj]*md.jWatProd[kj] 
+                                      for kj in md.njactivity if md.j_catch[kj]==nc)
+            ActCons             = sum(md.JjPROD[nt,kj]*md.jWatCons[kj] 
+                                      for kj in md.njactivity if md.j_catch[kj]==nc)
+            #Net incoming flow from upstream catchments (Mm3)
+            NetInflow           = (1-md.wFlowLoss[nc]) * sum(md.sw*md.WwOUTFLOW[nt,kc] 
+                                                             for kc in md.ncatch if md.catch_ds[kc] == nc) 
+            #Catchment Runoff (Mm3) 
+            RunOff              = md.wRunOff[nt,nc]
+            #Previous ground water storage
+            GwStorage           = sum(md.WwGWSTORAGE[md.t_prev[nt],kaq] 
+                                      if not (md.Options['Initial time step'] == 1 and md.Options['tini'] == nt) 
+                                      else md.wGwIni[kaq] for kaq in _naquifer(nc)) 
+            #Water abstraction from groundwater reservoir
+            Pumping             =(sum(md.AwGWSUPPLY[nt,kfz,kcul] 
+                                      for kfz in _nifzone(nc) for kcul in md.nculture) 
+                                  if md.Options['Groundwater']==1 else 0)
+            #Baseflow from groundwater reservoir
+            BaseFlow            = sum(GwStorage*(1-exp(-md.wGwFlow[kaq])) 
+                                      +(md.wGwRech[nt,kaq]-Pumping)*(1-(1-exp(-md.wGwFlow[kaq]))/md.wGwFlow[kaq]) 
+                                      for kaq in _naquifer(nc)) 
+            #Consumption of non agricultural users (Mm3)
+            UserCons            = sum(md.WwSUPPLY[nt,ku] * (1/(1-md.wUserLoss[ku])-md.wUserRturn[ku]) 
+                                      for ku in md.nuser if md.user_catch[ku] == nc)
+            #Agricultural module: Consumptiom to agriculture/crops (Mm3)
+            AgrCons             = sum(md.AwSUPPLY[nt,kfz,kcu] 
+                                      *(1/(1-md.aIrrgLoss[kfz])-md.aCulRturn[md.fzone_type[kfz],kcu]) 
+                                      for kfz in _nifzone(nc) for kcu in md.nculture)   
+            #Storage in reservoir (Mm3)               
+            DeltaStorage        = sum(_storage(nt,kres,mode='delta') for kres in _nres(nc)) 
+            #Evaporation from reservoir (Mm3)
+            Evaporation         = sum(md.xResEvap[nt,kres] for kres in _nres(nc))
+            #Incoming flow from upstream transfer scheme- if exists (Mm3)
+            TransNetInflow      = sum(md.WwTRANSFER[nt,ktrans] * (1-md.wTransLoss[ktrans])   
+                                      for ktrans in md.ntransfer if md.transfer_ds[ktrans] == nc)
+            #Allocation to downstream transfer scheme- if exists (Mm3)
+            TransGrossOutflow   = sum(md.WwTRANSFER[nt,ktrans]                               
+                                      for ktrans in md.ntransfer if md.transfer_us[ktrans] == nc)
+            #Catchment outflow : Allocation to downstream catchment (Mm3)                            
+            CatchmentOutflow    = md.sw*md.WwOUTFLOW[nt,nc]     
             DEBUG=md.DUMYWATER[nt,nc] if md.Options['Debug mode'] == 1 else 0
             return UserCons + AgrCons + TransGrossOutflow + DeltaStorage + Evaporation + CatchmentOutflow + ActCons == NetInflow + TransNetInflow + RunOff + BaseFlow + ActProd + DEBUG
                 
         def water_waterbalance2(md,nt,nc): #Avoids allocation from downstream reservoir to upstream demand [catchment x time] 
             if  sum(1 for ktrans in md.ntransfer if md.transfer_us[ktrans] == nc) + sum(1 for ku in md.nuser if md.user_catch[ku] == nc) + sum(1 for kfz in md.nfzone if md.fzone_catch[kfz]==nc) == 0:
                 return Constraint.Skip #if there is no demand and no transfer project constraint would be empty and is therefore skipped            
-            ActProd             = sum(md.JjPROD[nt,kj]*md.jWatProd[kj] for kj in md.njactivity if md.j_catch[kj]==nc)
-            ActCons             = sum(md.JjPROD[nt,kj]*md.jWatCons[kj] for kj in md.njactivity if md.j_catch[kj]==nc)
+            ActProd             = sum(md.JjPROD[nt,kj]*md.jWatProd[kj] 
+                                      for kj in md.njactivity if md.j_catch[kj]==nc)
+            ActCons             = sum(md.JjPROD[nt,kj]*md.jWatCons[kj] 
+                                      for kj in md.njactivity if md.j_catch[kj]==nc)
             BaseFlow            = 0
-            NetInflow           = (1-md.wFlowLoss[nc]) * sum(md.sw*md.WwOUTFLOW[nt,kc] for kc in md.ncatch if md.catch_ds[kc] == nc) #Net incoming flow from upstream catchments (Mm3)
-            RunOff              = md.wRunOff[nt,nc] #Catchment Inflow (Mm3) 
-            GwStorage           = sum(md.WwGWSTORAGE[md.t_prev[nt],kaq] if not (md.Options['Initial time step'] == 1 and md.Options['tini'] == nt) else md.wGwIni[kaq] for kaq in _naquifer(nc)) #Previous ground water storage
-            Pumping             = sum(md.AwGWSUPPLY[nt,kfz,kcul] for kfz in _nifzone(nc) for kcul in md.nculture) if md.Options['Groundwater']==1 else 0 #Water abstraction from groundwater reservoir
-            BaseFlow            = sum(GwStorage*(1-exp(-md.wGwFlow[kaq])) + (md.wGwRech[nt,kaq]-Pumping)*(1-(1-exp(-md.wGwFlow[kaq]))/md.wGwFlow[kaq]) for kaq in _naquifer(nc)) #Baseflow from groundwater reservoir
-            UserWithdrawal      = sum(md.WwSUPPLY[nt,ku] * 1/(1-md.wUserLoss[ku]) for ku in md.nuser if md.user_catch[ku] == nc) #Allocation to non agricultural users (Mm3)
-            AgrWithdrawal       = sum(md.AwSUPPLY[nt,kfz,kcu]* 1/(1-md.aIrrgLoss[kfz]) for kfz in _nifzone(nc) for kcu in md.nculture ) #Agricultural module: Allocation to agriculture/crops (Mm3)    
-            DeltaStorage        = sum(_storage(nt,kres,mode='delta') for kres in _nlake(nc)) #Storage in lakes and wetlands (Mm3)
-            Evaporation         = sum(md.xResEvap[nt,kres] for kres in _nlake(nc)) #Evaporation from lakes and wetlands (Mm3)
-            TransNetInflow      = sum(md.WwTRANSFER[nt,ktrans] * (1-md.wTransLoss[ktrans])   for ktrans in md.ntransfer if md.transfer_ds[ktrans] == nc)  #Incoming flow from upstream transfer scheme- if exists (Mm3)
-            TransGrossOutflow   = sum(md.WwTRANSFER[nt,ktrans]                               for ktrans in md.ntransfer if md.transfer_us[ktrans] == nc)  #Allocation to downstream transfer scheme- if exists (Mm3)                   
+            #Net incoming flow from upstream catchments (Mm3)
+            NetInflow           = (1-md.wFlowLoss[nc]) * sum(md.sw*md.WwOUTFLOW[nt,kc] 
+                                                             for kc in md.ncatch if md.catch_ds[kc] == nc) 
+            #Catchment Inflow (Mm3)
+            RunOff              = md.wRunOff[nt,nc] 
+            #Previous ground water storage
+            GwStorage           = sum(md.WwGWSTORAGE[md.t_prev[nt],kaq] 
+                                      if not (md.Options['Initial time step'] == 1 and md.Options['tini'] == nt) 
+                                      else md.wGwIni[kaq] for kaq in _naquifer(nc)) 
+            #Water abstraction from groundwater reservoir
+            Pumping             = (sum(md.AwGWSUPPLY[nt,kfz,kcul] 
+                                      for kfz in _nifzone(nc) for kcul in md.nculture) 
+                                  if md.Options['Groundwater']==1 else 0) 
+            #Baseflow from groundwater reservoir
+            BaseFlow            = sum(GwStorage*(1-exp(-md.wGwFlow[kaq])) 
+                                      +(md.wGwRech[nt,kaq]-Pumping)*(1-(1-exp(-md.wGwFlow[kaq]))/md.wGwFlow[kaq]) 
+                                      for kaq in _naquifer(nc)) 
+            #Allocation to non agricultural users (Mm3)
+            UserWithdrawal      = sum(md.WwSUPPLY[nt,ku] * 1/(1-md.wUserLoss[ku]) 
+                                      for ku in md.nuser if md.user_catch[ku] == nc) 
+            #Agricultural module: Allocation to agriculture/crops (Mm3)    
+            AgrWithdrawal       = sum(md.AwSUPPLY[nt,kfz,kcu]* 1/(1-md.aIrrgLoss[kfz]) 
+                                      for kfz in _nifzone(nc) for kcu in md.nculture ) 
+            #Storage in lakes and wetlands (Mm3)
+            DeltaStorage        = sum(_storage(nt,kres,mode='delta') for kres in _nlake(nc)) 
+            #Evaporation from lakes and wetlands (Mm3)
+            Evaporation         = sum(md.xResEvap[nt,kres] for kres in _nlake(nc)) 
+            #Incoming flow from upstream transfer scheme- if exists (Mm3)
+            TransNetInflow      = sum(md.WwTRANSFER[nt,ktrans] * (1-md.wTransLoss[ktrans])   
+                                      for ktrans in md.ntransfer if md.transfer_ds[ktrans] == nc)  
+            #Allocation to downstream transfer scheme- if exists (Mm3) 
+            TransGrossOutflow   = sum(md.WwTRANSFER[nt,ktrans]                               
+                                      for ktrans in md.ntransfer if md.transfer_us[ktrans] == nc)                    
             DEBUG=md.DUMYWATER[nt,nc] if md.Options['Debug mode'] == 1 else 0
             return UserWithdrawal + AgrWithdrawal + TransGrossOutflow + DeltaStorage + Evaporation + ActCons <= NetInflow + TransNetInflow + RunOff + BaseFlow + ActProd +DEBUG
                 
@@ -856,7 +963,7 @@ class HydroeconomicOptimization():
             
         ##Create constraints##
         md.water_waterbalance       = Constraint(md.ntime, md.ncatch, rule=water_waterbalance)
-        md.water_waterbalance2      = Constraint(md.ntime, md.ncatch, rule=water_waterbalance2)   
+        md.water_waterbalance2      = Constraint(md.ntime, md.ncatch, rule=water_waterbalance2) 
         md.water_usermaxall         = Constraint(md.ntime, md.nuser,  rule=water_usermaxall)
         md.water_reservoircapacity  = Constraint(md.ntime, md.nres,   rule=water_reservoircapacity)
         md.water_groundwaterbalance = Constraint(md.ntime, md.naquifer, rule=water_groundwaterbalance)       
