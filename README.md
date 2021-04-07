@@ -1,71 +1,68 @@
-# WHAT-IF: Supporting water infrastructure investment planning with hydroeconomic optimization models 
+ï»¿# WHAT-IF: Supporting water infrastructure investment planning within the water-energy-food nexus 
+**FrontiersInWater_SyntheticCase branch** Synthetic case as in the (under review) article - go to Master branch to start your own case
 
-**This is the example branch - perfect start point to create your own WHAT-IF case study !**
+## The decision support tool
 
-The WHAT-IF (Water, Hydropower, Agriculture Tool for Investment and Financing) model is an open source decision support tool 
-distributed under the GPLv3 license and is described in the [HESS publication](https://www.hydrol-earth-syst-sci-discuss.net/hess-2019-167/):
-> WHAT-IF: an open-source decision support tool for water infrastructure investment planning within the Water-Energy-Food-Climate Nexus
+WHAT-IF (Water, Hydropower, Agriculture Tool for Investment and Financing) is an open source decision support tool 
+distributed under the GPLv3 license and is described in the [HESS publication](https://doi.org/10.5194/hess-23-4129-2019):
+> Payet-Burin, R., Kromann, M., Pereira-Cardenal, S., Strzepek, K. and Bauer-Gottwein, P.: WHAT-IF: An open-source decision support tool for water infrastructure investment planning within the water-energy-food-climate nexus, Hydrol. Earth Syst. Sci., 23(10), 4129â€“4152, [doi:10.5194/hess-23-4129-2019](https://doi.org/10.5194/hess-23-4129-2019), 2019  
 
+WHAT-IF was developed to analyze water-related investments in an economic context. WHAT-IF has a holistic and bottom-up approach, the management of infrastructure (e.g. reservoirs, irrigation, water supply, energy production) is solved simultaneously in order to maximize welfare benefits considering crop and power markets and trade. 
+The hydro-economic optimization framework enables the tool to solve synergies and trade-offs between the water, 
+energy and agricultural sector and explore a large range of scenarios considering exogenous climate change and socio-economic drivers. 
+The main feedback loops in the model are summarized in the figure below.  
 
-The decision-support tool can be used in single-run mode or in scenario mode:
+![WHAT-IF model](https://github.com/RaphaelPB/WHAT-IF/blob/master/Documents/images/WHATIF_model.PNG)  
 
-* **WHATIF_main.py** 
-Single run of the model, collects the parameters from the data module, creates an hydroeconomic optimization model, solves it and exports the results 
-* **WHATIF_scenario.py** 
-Multiple runs of the model, collects the parameters from the data module, creates an hydroeconomic optimization model, 
-solves it for all specified scenarios and exports the results for each scenario as well as a synthesis of all scenarios
-* **WHATIF_scenario_mpc.py** 
-Same with the possibility of using the Model Predictive Control (MPC) framework which avoids the perfect foresight assumption
+The water resource availability is typically represented by an exogenous rainfall-runoff model, while the natural (e.g. river network, lakes) and engineered (e.g. reservoirs, transfer schemes) flow network is represented internally at the sub-basin and monthly scale. Water users (except hydropower and irrigation) are represented through their demand/value, while ecosystems are represented through environmental flow constraints.
 
-The **bin** folder contains the main libraries for the decision support tool:
+The agriculture sector is represented by rainfed and irrigated agriculture, that produce within crop markets (typically at the national scale), while trade occurs between markets (including e.g. a world market). Crop demand is represented per market considering own-price elasticity. The main links with the water resources are rainfall, surface and groundwater supply to agriculture, using mainly the FAO 33 (Doorenbos and Kassam, 1979) and FAO 56 (Allen et al., 1998) for irrigation requirement and yield water response functions. 
 
-* **data_collection.py**
-Collects the data from the excel files (MainFile, WaterModule, AgricultureModule, CropMarketModule, EnergyModule) into a python object
-* **hydroeconomic_optimization.py** 
-Formulates the optimization problem of the water-energy-food management (and investments at a later stage) 
-* **result_analysis.py**
-Performs the analysis of the results and exports them towards the excel/python files 
-* **model_predictive_control.py**
-Routines for the Model Predictive Control (MPC) framework
+Power plants (e.g. hydropower, thermal, renewables), produce within power markets (typically at the national scale), that trade through transmission lines, while greenhouse gas emissions are traced. A capacity expansion model represents the development of generic power technologies. Power demand is represented as inelastic, but different load segment (sometimes called "time slices") that sub-divide the monthly demand can be defined (e.g. peak and base demand). Capacity factors for power plants can be defined at the monthly and load segment scale and represent limited availability of power plants. For example, capacity factors can be used to represent seasonal and intraday variability of renewable energies. Hydropower production is dependent on river flow and reservoir releases.
 
-The **Data** folder contains the requiered data for the different modules:
+While the previously described processes are predefined in the model (with a flexible implementation), a general activity module represents any other process that consumes and/or produces one or several commodities (land, water, power, and crops) connecting sub-basins, crop markets, power markets and agriculture land. This can represent various processes such as: desalinization (consumes energy and produces water), livestock (consumes land, water and crops and produces another food commodity), food processing (consumes energy, water and crops and produces another commodity), and bioenergy (consumes crops or crop residues and produces energy).
+The main exogenous drivers are demand for commodities (water, crops, electricity), technology development (e.g. power technologies, yields, efficiencies), external markets (import/export prices), policies (e.g. environmental constraints, food security policies, carbon taxes), and climate change.
 
-* **MainFile.xlsx** Is the configuration file, specifying the time steps, options and scenarios that are used by the model.
-* **WaterModule.xlsx** Data supporting the Water module, including the hydrology (runoff, evapo-transpiration, precipitation, groundwater recharge, catchments …), the reservoirs and the environmental requirements
-* **AgricultureModule.xlsx** Data supporting the Agriculture module, including farming zones, farm types, crops and cultures characteristics.
-* **CropMarketModule.xlsx** Data supporting the crop market module, including crop markets, demands, value of crops, transport routes and food security constraints.
-* **EnergyModule.xlsx** Data supporting the energy production and energy markets modules, including hydropower plants, other power plants, power technologies, fuels, energy markets, demands, value of energy and transmission lines.
+Operation of infrastructure (e.g. releases, water supply, energy production, trade, cropping) is solved simultaneously considering physical and policy constraints to maximize welfare benefits. Welfare benefits are the sum of consumer and producer surplus (see Krugman and Wells, 2005). The optimization framework simulates how operation and management responds to new infrastructure and exogenous climate change and socio-economic drivers. As the model is solved in a single iteration for the entire planning horizon, this results in assuming "perfect foresight" in represented infrastructure operation.
 
-The **Documents** folder contains additional information:
-* **How_to_Install_WHATIF.docx** is a step by step guide on how to install and run WHAT-IF
-* **How_to_Compare_Scenarios** is a step by step guide on how to create and compare scenarios in WHAT-IF
-* **How_to_Use_WHATIF_visualize.docx** is a step by step guide on how to use an enhance result viewer
-* **How_to_Spot_Common_Errors.docx** lists most common programing errors when using/developing the model
-* **Data_Organization.docx** summarizes the organization of the data for the WHAT-IF model and the HESS publication
-* **WHATIF_py37.yml** is the conda environment with all the useful packages to run WHAT-IF 
+## Wiki
 
-## Usage
+For all detailed information check the [wiki page](https://github.com/RaphaelPB/WHAT-IF/wiki):
+* [Installing and running WHAT IF](https://github.com/RaphaelPB/WHAT-IF/wiki/Installing-and-running-WHAT-IF)
+* [Code structure](https://github.com/RaphaelPB/WHAT-IF/wiki/Code-structure)
+* [Creating, running and comparing scenarios](https://github.com/RaphaelPB/WHAT-IF/wiki/Creating,-running-and-comparing-scenarios) 
+* and many more...
 
-The **Documents** folder contains a step by step guide **How_to_Install_WHATIF** describing the process, in brief:
+## Model versions (/branches)
+If you look for a specific version of the model (eventually corresponding to a specific paper/study case), change the branch
+* **[Master](https://github.com/RaphaelPB/WHAT-IF)** is the main branch containing the most recent public model developments and a synthetic data case to understand the model
+* **[HESS_zambezi](https://github.com/RaphaelPB/WHAT-IF/tree/HESS_Zambezi)** is the model as published in [HESS](https://www.hydrol-earth-syst-sci-discuss.net/hess-2019-167/) with the Zambezi dataset
+* **[FrontiersInWater_Zambezi](https://github.com/RaphaelPB/WHAT-IF/tree/FrontiersInWater_Zambezi)** is the model as published in (under review) for the investment planning study in the Zambezi River Basin as in the article 
+* **[FrontiersInWater_SyntheticCase](https://github.com/RaphaelPB/WHAT-IF/tree/FrontiersInWater_SyntheticCase)** is the model as published in (under review) for the investment planning study in the synthetic case (which is based on the Master branch example) 
+* **[Nile_SyntheticCase](https://github.com/RaphaelPB/WHAT-IF/tree/Nile_SyntheticCase)** model set-up described in [this publication](https://www.essoar.org/doi/10.1002/essoar.10504115.1) synthetic case on the nile comparing SDP, MPC, and perfect foresight (we do not recommend to use except to reproduce the experiments from the publication)
+
+The data and the model version are relatively disconnected - but using data from an older set-up might require a few adaptations.
+We recommend to always use the latest version of the model.
+
+## Install
+
+The [Installing and running WHAT IF](https://github.com/RaphaelPB/WHAT-IF/wiki/Installing-and-running-WHAT-IF) contains a step by step guide describing the process, in brief:
 * Install the [Anaconda navigator](https://anaconda.org/anaconda/anaconda-navigator), 
 the simpliest way to manage your pyhton packages and versions
+* In the anaconda prompt, run:  
+`conda config --add channels conda-forge`  
+`conda create -n WHATIF_py38 python=3.8.8`  
+`conda install -n WHATIF_py38 openpyxl xlsxwriter xlrd pyomo=5.7.3 pandas=1.2.3 numpy multiprocess ipopt=3.11.1 glpk`  
+`conda activate WHATIF_py38`  
 
-* Install the WHATIF_py37 environment from the **Documents** folder
-
-To do so, in the anaconda prompt, run:
-
-* `conda config --add channels conda-forge`
-* `conda create -n WHATIF_py37 python=3.7.3`
-* `conda install -n WHATIF_py37 openpyxl xlsxwriter xlrd pyomo=5.6.2 pandas numpy multiprocess ipopt glpk`
-* `conda activate WHATIF_py37` 
-
-* Recommended solvers are ipopt (non-linear), cplex (free for academics) or glpk (open-source)
-* WHAT-IF is now only released with Python 3.7
-
+* Recommended solvers are glpk (open-source, linear - slow), ipopt (open-source, non-linear), cplex (free for academics, linear - fast) see [Installing extra solvers](https://github.com/RaphaelPB/WHAT-IF/wiki/Installing-extra-solvers)
+* WHAT-IF is now only released with Python 3.x (above 3.6, preferably 3.8)
 
 ## Contributors 
-Payet-Burin Raphaël (DTU/COWI - rapp@env.dtu.dk)
-Mikkel Kromann (dansk energi)
-Peter Bauer-Gottwein (DTU)
-Silvio Pereira-Cardenal (COWI)
-Kenneth Strzepek (MIT)
+> Innovation Fund Denmark (grant no. 7038-00015B), COWIfonden (grant no. C-137.02), the Technical University of Denmark (DTU), the Massachusetts Institute of Technology (MIT), and COWI A/S funded the industrial PhD project in which this research was carried out  
+
+Payet-Burin RaphaÃ«l (DTU/COWI - rapy@cowi.dk)  
+Mikkel Kromann (dansk energi)  
+[Peter Bauer-Gottwein](https://orbit.dtu.dk/en/persons/peter-bauer-gottwein) (DTU)  
+Silvio Pereira-Cardenal (COWI)  
+Kenneth Strzepek (MIT)  
