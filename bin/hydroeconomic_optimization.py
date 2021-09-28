@@ -607,10 +607,10 @@ class HydroeconomicOptimization():
                                                if ky <= y and ky > y-md.eLifeTime[pt,pm]) 
                         for pt in md.nptech)
             if y == yfin:
-                CAPEX+=-sum(md.se*md.EeGENCAP[y,pt,pm]*md.eCAPEX[y,pt,pm]
-                            *max(0,1-(md.t_year[md.Options['tfin']]+1-(y+md.eConstTime[pt,pm]))/md.eLifeTime[pt,pm]) #share of lifetime not used
-                            for y in md.nyear for pt in md.nptech for pm in md.npmarket 
-                            if y+md.eConstTime[pt,pm] <= md.t_year[md.Options['tfin']])
+                CAPEX+=-sum(md.se*md.EeGENCAP[ky,pt,pm]*md.eCAPEX[y,pt,pm]
+                            *max(0,1-(yfin+1-(ky+md.eConstTime[pt,pm]))/md.eLifeTime[pt,pm]) #share of lifetime not used
+                            for ky in md.nyear for pt in md.nptech
+                            if ky+md.eConstTime[pt,pm] <= yfin)
             return CAPEX+FixOPEX
         
         md.xGenCapCost=Expression(md.nyear,md.npmarket,rule=xGenCapCost)
@@ -653,10 +653,10 @@ class HydroeconomicOptimization():
             if md.Options['Investment module'] not in [1,'continuous']:
                 return 0
             #ADD: fix costs for investment replacing existing capacity include the existing cap in the fix opex
-            fixOPEX = sum(_InvestedCapacity(0,inv,md.iInvType[inv],y,year=1)/md.iInvCap[inv]*md.iFixOPEX[inv] 
-                          for ip in md.ninvphase for inv in md.ninvest 
-                          if md.t_year[md.invphase_t[ip]]==y
-                          and md.iInvCap[inv] != 0)
+            fixOPEX = sum(_InvestedCapacity(0,inv,md.iInvType[inv],y,year=1)
+                          /md.iInvCap[inv]*md.iFixOPEX[inv] 
+                          for inv in md.ninvest 
+                          if md.iInvCap[inv] != 0)
             return fixOPEX       
         md.xInvCAPEX = Expression(md.nyear,rule=xInvCAPEX)
         md.xInvFixOPEX = Expression(md.nyear,rule=xInvFixOPEX)
@@ -1358,7 +1358,7 @@ class HydroeconomicOptimization():
         def engy_demand(md,nt,npld,npm): #Power demand satisfaction
             #ny0         = md.t_year[md.Options['tini']]
             Supply      = md.se*md.EeSUPPLY[nt,npld,npm] 
-            LoadSegment = md.eEngyDem[md.t_year[nt],md.t_month[nt],npm] * md.eLoadDem[npld] # * md.eDemYear[npm]**(md.t_year[nt]-ny0) Demand of power market for power load segment          
+            LoadSegment = md.eEngyDem[md.t_year[nt],md.t_month[nt],npm] * md.eLoadDem[npld] #  Demand of power market for power load segment          
             return Supply <= LoadSegment
                 
         #Create constraints
