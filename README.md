@@ -61,7 +61,7 @@ the simpliest way to manage your pyhton packages and versions
 ## Contributors 
 > Innovation Fund Denmark (grant no. 7038-00015B), COWIfonden (grant no. C-137.02), the Technical University of Denmark (DTU), the Massachusetts Institute of Technology (MIT), and COWI A/S funded the industrial PhD project in which this research was carried out  
 
-Payet-Burin Raphaël (DTU/COWI - rapy@cowi.com)  
+Payet-Burin Raphaël (DMI/majiconsult - rapy@majiconsult.dk)  
 Mikkel Kromann (dansk energi)  
 [Peter Bauer-Gottwein](https://orbit.dtu.dk/en/persons/peter-bauer-gottwein) (DTU)  
 Silvio Pereira-Cardenal (COWI)  
